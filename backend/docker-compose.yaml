@@ -7,6 +7,8 @@ services:
     networks:
       rwznet:
         ipv4_address: 10.31.13.175
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 networks:
   rwznet:
