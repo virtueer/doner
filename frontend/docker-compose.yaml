@@ -1,0 +1,15 @@
+services:
+  doner-frontend:
+    build: 
+      context: .
+    container_name: doner-frontend
+    environment:
+      - NODE_ENV=production
+    restart: always
+    networks:
+      rwznet:
+        ipv4_address: 10.31.13.176
+
+networks:
+  rwznet:
+    external: true

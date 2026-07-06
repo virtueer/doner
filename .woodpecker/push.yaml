@@ -1,0 +1,33 @@
+when:
+  - event: [push]
+
+steps:
+  - name: frontend-deploy
+    image: docker:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    commands:
+      - cd frontend
+      - docker compose up --build -d
+    when:
+      path: [ "frontend/**" ]
+
+  - name: backend-deploy
+    image: docker:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    commands:
+      - cd backend
+      - docker compose up --build -d
+    when:
+      path: [ "backend/**" ]
+
+  - name: notify_webhook
+    image: curlimages/curl
+    commands:
+      - |
+        curl -X POST -H "Content-Type: application/json" \
+          -d "{\"status\": \"$CI_PIPELINE_STATUS\", \"repo\": \"$CI_REPO_NAME\", \"url\": \"$CI_STEP_URL\"}" \
+          http://n8n:5678/webhook/on-ci-action
+    when:
+      status: [ success, failure ]

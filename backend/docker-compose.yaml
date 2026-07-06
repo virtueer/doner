@@ -1,0 +1,13 @@
+services:
+  doner-backend:
+    build: 
+      context: .
+    container_name: doner-backend
+    restart: always
+    networks:
+      rwznet:
+        ipv4_address: 10.31.13.175
+
+networks:
+  rwznet:
+    external: true
