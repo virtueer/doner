@@ -27,7 +27,8 @@ function App() {
   const fetchGraphData = async () => {
     try {
       setLoading(true);
-      const res = await fetch('http://localhost:3000/api/network-graph');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${apiUrl}/api/network-graph`);
       if (!res.ok) throw new Error('Failed to fetch graph data');
       const data = await res.json();
 
