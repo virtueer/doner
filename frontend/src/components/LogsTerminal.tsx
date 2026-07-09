@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Terminal } from 'lucide-react';
+import { renderAnsiLine } from '@/lib/ansi';
 
 interface LogsTerminalProps {
   containerId: string;
@@ -67,7 +68,7 @@ export function LogsTerminal({ containerId, containerName }: LogsTerminalProps) 
         )}
         {logs.map((line, i) => (
           <div key={i} className="whitespace-pre-wrap break-all leading-relaxed text-green-400/90">
-            {line}
+            {renderAnsiLine(line)}
           </div>
         ))}
         <div ref={logsEndRef} />

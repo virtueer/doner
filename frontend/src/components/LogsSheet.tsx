@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Terminal, ExternalLink } from 'lucide-react';
+import { renderAnsiLine } from '@/lib/ansi';
 
 interface LogsSheetProps {
   containerId: string;
@@ -89,7 +90,7 @@ export function LogsSheet({ containerId, containerName, onClose }: LogsSheetProp
           )}
           {logs.map((line, i) => (
             <div key={i} className="whitespace-pre-wrap break-all text-green-400/90">
-              {line}
+              {renderAnsiLine(line)}
             </div>
           ))}
           <div ref={logsEndRef} />
