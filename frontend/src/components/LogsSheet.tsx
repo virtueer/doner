@@ -77,13 +77,18 @@ export function LogsSheet({ containerId, containerName, onClose }: LogsSheetProp
           </div>
         </div>
 
+        {/* Prompt */}
+        <div className="px-4 py-2 text-green-700 text-xs border-b border-green-900/20 font-mono">
+          $ docker logs -f {containerName}
+        </div>
+
         {/* Logs */}
-        <div className="flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed">
+        <div className="flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed bg-[#0c0c0c]">
           {logs.length === 0 && (
-            <div className="text-muted-foreground italic">Waiting for logs...</div>
+            <div className="text-green-800 italic">Waiting for logs...</div>
           )}
           {logs.map((line, i) => (
-            <div key={i} className="whitespace-pre-wrap break-all text-foreground/90">
+            <div key={i} className="whitespace-pre-wrap break-all text-green-400/90">
               {line}
             </div>
           ))}

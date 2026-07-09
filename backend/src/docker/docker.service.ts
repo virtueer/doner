@@ -21,14 +21,25 @@ export class DockerService {
     });
 
     return (async function* () {
-      let buffer = '';
+      // Docker raw log stream: each message has an 8-byte header
+      // (1 byte stream type + 3 bytes padding + 4 bytes length)
+      let dataBuffer = Buffer.alloc(0);
+
       for await (const chunk of stream as any) {
-        buffer += chunk.toString('utf8');
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        for (const line of lines) {
-          if (line.trim()) {
-            yield line;
+        dataBuffer = Buffer.concat([dataBuffer, Buffer.from(chunk)]);
+
+        while (dataBuffer.length >= 8) {
+          const msgLength = dataBuffer.readUInt32BE(4);
+          if (dataBuffer.length < 8 + msgLength) break;
+
+          const message = dataBuffer.slice(8, 8 + msgLength).toString('utf8');
+          dataBuffer = dataBuffer.slice(8 + msgLength);
+
+          const lines = message.split('\n');
+          for (const line of lines) {
+            if (line.trim()) {
+              yield line;
+            }
           }
         }
       }
