@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Terminal } from 'lucide-react';
+import { X, Terminal, ExternalLink } from 'lucide-react';
 
 interface LogsSheetProps {
   containerId: string;
   containerName: string;
   onClose: () => void;
+}
+
+function openTerminalTab(containerId: string, containerName: string) {
+  const url = `${window.location.origin}?logs=${encodeURIComponent(containerId)}&name=${encodeURIComponent(containerName)}`;
+  window.open(url, '_blank');
 }
 
 export function LogsSheet({ containerId, containerName, onClose }: LogsSheetProps) {
@@ -46,7 +51,7 @@ export function LogsSheet({ containerId, containerName, onClose }: LogsSheetProp
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
-        className="relative w-[480px] h-full bg-card border-l border-border flex flex-col shadow-2xl"
+        className="relative w-[75vw] h-full bg-card border-l border-border flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -55,12 +60,21 @@ export function LogsSheet({ containerId, containerName, onClose }: LogsSheetProp
             <Terminal className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-semibold">{containerName}</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-md hover:bg-muted transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => openTerminalTab(containerId, containerName)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Open in new tab
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-md hover:bg-muted transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Logs */}

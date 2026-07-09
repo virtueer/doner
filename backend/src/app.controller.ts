@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Res } from '@nestjs/common';
 import { DockerService } from './docker/docker.service';
 
 @Controller('api')
@@ -11,7 +11,7 @@ export class AppController {
   }
 
   @Get('container-logs/:id')
-  async streamContainerLogs(@Param('id') id: string, res: any) {
+  async streamContainerLogs(@Param('id') id: string, @Res() res: any) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');

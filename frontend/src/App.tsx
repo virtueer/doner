@@ -13,6 +13,7 @@ import '@xyflow/react/dist/style.css';
 import { NetworkNode } from './components/NetworkNode';
 import { ContainerNode } from './components/ContainerNode';
 import { LogsSheet } from './components/LogsSheet';
+import { LogsTerminal } from './components/LogsTerminal';
 import { Layout } from 'lucide-react';
 
 const nodeTypes = {
@@ -21,6 +22,16 @@ const nodeTypes = {
 };
 
 function App() {
+  // Check for terminal mode via URL params
+  const params = new URLSearchParams(window.location.search);
+  const logsParam = params.get('logs');
+  const nameParam = params.get('name');
+  const isTerminalMode = !!logsParam;
+
+  if (isTerminalMode && logsParam && nameParam) {
+    return <LogsTerminal containerId={logsParam} containerName={nameParam} />;
+  }
+
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loading, setLoading] = useState(true);
