@@ -36,7 +36,7 @@ const COLORS256: string[] = [
 
 function parse256Color(code: string): string | null {
   const num = parseInt(code, 10);
-  if (num >= 16 && num <= 255 && COLORS256[num]) {
+  if (num >= 0 && num <= 255 && COLORS256[num]) {
     return COLORS256[num];
   }
   return null;
