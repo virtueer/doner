@@ -17,7 +17,6 @@ export class DockerService {
       stderr: true,
       follow: true,
       tail: 100,
-      timestamps: true,
     });
 
     return (async function* () {

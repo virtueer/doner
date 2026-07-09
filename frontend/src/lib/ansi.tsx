@@ -22,9 +22,9 @@ const COLORS256: string[] = [
   '#555555', '#ff5555', '#55ff55', '#ffff55', '#5555ff', '#ff55ff', '#55ffff', '#ffffff',
   // 16-231: 6x6x6 color cube
   ...Array.from({ length: 216 }, (_, i) => {
-    const r = Math.floor(i / 36) * 51 % 255;
-    const g = Math.floor((i % 36) / 6) * 51 % 255;
-    const b = (i % 6) * 51 % 255;
+    const r = Math.floor(i / 36) * 51;
+    const g = Math.floor((i % 36) / 6) * 51;
+    const b = (i % 6) * 51;
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }),
   // 232-255: grayscale
@@ -57,6 +57,12 @@ function applyCodes(codes: string[], current: Segment): Segment {
       return { text: '' };
     } else if (code === '1') {
       current.bold = true;
+    } else if (code === '39') {
+      // Reset foreground to default
+      delete current.color;
+    } else if (code === '49') {
+      // Reset background to default
+      delete current.bgColor;
     } else if (code === '38' && codes[j + 1] === '5') {
       const color = parse256Color(codes[j + 2]);
       if (color) current.color = color;
