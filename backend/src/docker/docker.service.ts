@@ -17,6 +17,7 @@ export class DockerService {
       stderr: true,
       follow: true,
       tail: 100,
+      timestamps: true,
     });
 
     return (async function* () {
@@ -37,7 +38,8 @@ export class DockerService {
           const lines = message.split('\n');
           for (const line of lines) {
             if (line.trim()) {
-              yield line;
+              // Strip ANSI escape sequences
+              yield line.replace(/\x1b\[[0-9;]*m/g, '');
             }
           }
         }
