@@ -1,7 +1,5 @@
 import type { ReactNode } from 'react';
 
-const ANSI_REGEX = /\x1b\[((\d+(;\d+)*)?)m/g;
-
 const FG_COLORS: Record<string, string> = {
   '30': '#808080', '31': '#f44336', '32': '#4caf50', '33': '#ffeb3b',
   '34': '#2196f3', '35': '#9c27b0', '36': '#00bcd4', '37': '#e0e0e0',
@@ -51,56 +49,63 @@ interface Segment {
   bold?: boolean;
 }
 
+function applyCodes(codes: string[], current: Segment): Segment {
+  let j = 0;
+  while (j < codes.length) {
+    const code = codes[j];
+    if (code === '' || code === '0') {
+      return { text: '' };
+    } else if (code === '1') {
+      current.bold = true;
+    } else if (code === '38' && codes[j + 1] === '5') {
+      const color = parse256Color(codes[j + 2]);
+      if (color) current.color = color;
+      j += 2;
+    } else if (code === '48' && codes[j + 1] === '5') {
+      const color = parse256Color(codes[j + 2]);
+      if (color) current.bgColor = color;
+      j += 2;
+    } else if (code in FG_COLORS) {
+      current.color = FG_COLORS[code];
+    } else if (code in BG_COLORS) {
+      current.bgColor = BG_COLORS[code];
+    }
+    j++;
+  }
+  return current;
+}
+
 export function parseAnsi(text: string): Segment[] {
+  if (!text) return [{ text }];
+
   const segments: Segment[] = [];
   let current: Segment = { text: '' };
+  let lastIdx = 0;
 
+  // Match ANSI escape sequences: \x1b[...m
+  const regex = /\x1b\[\d+(;\d+)*m/g;
+  let match: RegExpExecArray | null;
 
-  const parts = text.split(ANSI_REGEX);
-
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-
-    if (i % 2 === 0) {
-      // Text portion
-      current.text += part;
-      if (i === parts.length - 1) {
-        // Last text segment
-        if (current.text) segments.push({ ...current });
-      }
-    } else {
-      // ANSI code portion — flush current segment
-      if (current.text) segments.push({ ...current });
-
-      // Parse codes
-      const codes = part.split(';').map((c) => c.trim());
-      let j = 0;
-      while (j < codes.length) {
-        const code = codes[j];
-        if (code === '' || code === '0') {
-          current = { text: '' };
-        } else if (code === '1') {
-          current.bold = true;
-        } else if (code === '38' && codes[j + 1] === '5') {
-          // 256-color foreground: \x1b[38;5;Nm
-          const color = parse256Color(codes[j + 2]);
-          if (color) current.color = color;
-          j += 2;
-        } else if (code === '48' && codes[j + 1] === '5') {
-          // 256-color background: \x1b[48;5;Nm
-          const color = parse256Color(codes[j + 2]);
-          if (color) current.bgColor = color;
-          j += 2;
-        } else if (code in FG_COLORS) {
-          current.color = FG_COLORS[code];
-        } else if (code in BG_COLORS) {
-          current.bgColor = BG_COLORS[code];
-        }
-        j++;
-      }
-
-      current = { text: '', color: current.color, bgColor: current.bgColor, bold: current.bold };
+  while ((match = regex.exec(text)) !== null) {
+    // Push text before the ANSI sequence
+    if (match.index > lastIdx) {
+      current.text += text.slice(lastIdx, match.index);
     }
+
+    // Extract codes from the match: e.g., "38;5;231"
+    const codeStr = match[0].slice(2, -1); // strip "[...m"
+    const codes = codeStr.split(';').filter((c) => c !== '');
+    current = applyCodes(codes, current);
+    lastIdx = match.index + match[0].length;
+  }
+
+  // Push remaining text
+  if (lastIdx < text.length) {
+    current.text += text.slice(lastIdx);
+  }
+
+  if (current.text) {
+    segments.push({ ...current });
   }
 
   return segments.length ? segments : [{ text }];
