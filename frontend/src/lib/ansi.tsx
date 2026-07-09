@@ -106,7 +106,8 @@ export function parseAnsi(text: string): Segment[] {
   return segments.length ? segments : [{ text }];
 }
 
-export function renderAnsiLine(line: string): ReactNode {
+export function renderAnsiLine(line: string | null | undefined): ReactNode {
+  if (!line) return null;
   const segments = parseAnsi(line);
   return segments.map((seg, i) => (
     <span

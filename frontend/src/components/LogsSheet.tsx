@@ -24,14 +24,18 @@ export function LogsSheet({ containerId, containerName, onClose }: LogsSheetProp
     eventSourceRef.current = es;
 
     es.onmessage = (event) => {
+      let line: string;
       try {
-        const line = JSON.parse(event.data);
+        const parsed = JSON.parse(event.data);
+        line = typeof parsed === 'string' ? parsed : String(parsed ?? '');
+      } catch {
+        line = event.data ?? '';
+      }
+      if (line) {
         setLogs((prev) => {
           const updated = [...prev, line];
           return updated.length > 500 ? updated.slice(-500) : updated;
         });
-      } catch {
-        setLogs((prev) => [...prev, event.data]);
       }
     };
 

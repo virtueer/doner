@@ -17,14 +17,18 @@ export function LogsTerminal({ containerId, containerName }: LogsTerminalProps) 
     const es = new EventSource(`${apiUrl}/api/container-logs/${containerId}`);
 
     es.onmessage = (event) => {
+      let line: string;
       try {
-        const line = JSON.parse(event.data);
+        const parsed = JSON.parse(event.data);
+        line = typeof parsed === 'string' ? parsed : String(parsed ?? '');
+      } catch {
+        line = event.data ?? '';
+      }
+      if (line) {
         setLogs((prev) => {
           const updated = [...prev, line];
           return updated.length > 2000 ? updated.slice(-2000) : updated;
         });
-      } catch {
-        setLogs((prev) => [...prev, event.data]);
       }
     };
 
