@@ -94,11 +94,11 @@ function App() {
 
   const [selectedContainer, setSelectedContainer] = useState<{ id: string; name: string } | null>(null);
 
-  const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+  const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     if (node.type === 'containerNode') {
       // Extract the raw container ID (strip the "cont-" prefix)
       const rawId = node.id.replace('cont-', '');
-      setSelectedContainer({ id: rawId, name: node.data.label });
+      setSelectedContainer({ id: rawId, name: node.data.label as string });
     }
   }, []);
 
