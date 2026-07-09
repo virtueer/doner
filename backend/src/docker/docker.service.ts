@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import Docker from 'dockerode';
+import type { Container } from 'dockerode';
 
 @Injectable()
 export class DockerService {
@@ -7,6 +8,31 @@ export class DockerService {
 
   constructor() {
     this.docker = new Docker(); // Defaults to standard socket/pipe
+  }
+
+  async getContainerLogsStream(containerId: string): Promise<AsyncIterable<string>> {
+    const container: Container = this.docker.getContainer(containerId);
+    const stream = await container.logs({
+      stdout: true,
+      stderr: true,
+      follow: true,
+      tail: 100,
+      timestamps: true,
+    });
+
+    return (async function* () {
+      let buffer = '';
+      for await (const chunk of stream as any) {
+        buffer += chunk.toString('utf8');
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (line.trim()) {
+            yield line;
+          }
+        }
+      }
+    })();
   }
 
   async getNetworkGraph() {

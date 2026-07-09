@@ -2,13 +2,17 @@ import { Handle, Position } from '@xyflow/react';
 import { Box } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export function ContainerNode({ data }: { data: any }) {
+export function ContainerNode({ data, onClick }: { data: any; onClick?: () => void }) {
   const isRunning = data.state === 'running';
 
   return (
     <>
       <Handle type="target" position={Position.Top} className="w-16 !bg-blue-500" />
-      <Card className="w-[310px] shadow-lg bg-card/95 backdrop-blur-md border-l-4 p-2" style={{ borderLeftColor: isRunning ? '#22c55e' : '#ef4444' }}>
+      <Card
+        className="w-[310px] shadow-lg bg-card/95 backdrop-blur-md border-l-4 p-2 cursor-pointer hover:shadow-xl transition-shadow"
+        style={{ borderLeftColor: isRunning ? '#22c55e' : '#ef4444' }}
+        onClick={onClick}
+      >
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <CardTitle className="text-base font-semibold truncate w-[220px]" title={data.label}>
             {data.label}

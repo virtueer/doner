@@ -6,11 +6,13 @@ import {
   useNodesState,
   useEdgesState,
   addEdge,
-  type Edge
+  type Edge,
+  type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { NetworkNode } from './components/NetworkNode';
 import { ContainerNode } from './components/ContainerNode';
+import { LogsSheet } from './components/LogsSheet';
 import { Layout } from 'lucide-react';
 
 const nodeTypes = {
@@ -90,6 +92,16 @@ function App() {
 
   const onConnect = useCallback((params: any) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
 
+  const [selectedContainer, setSelectedContainer] = useState<{ id: string; name: string } | null>(null);
+
+  const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    if (node.type === 'containerNode') {
+      // Extract the raw container ID (strip the "cont-" prefix)
+      const rawId = node.id.replace('cont-', '');
+      setSelectedContainer({ id: rawId, name: node.data.label });
+    }
+  }, []);
+
   return (
     <div className="w-full h-screen dark bg-background text-foreground flex flex-col">
       <header className="p-2 border-b flex items-center justify-between bg-card z-10">
@@ -120,6 +132,7 @@ function App() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onNodeClick={handleNodeClick}
           nodeTypes={nodeTypes}
           fitView
           className="bg-background"
@@ -131,6 +144,14 @@ function App() {
           <Controls />
         </ReactFlow>
       </main>
+
+      {selectedContainer && (
+        <LogsSheet
+          containerId={selectedContainer.id}
+          containerName={selectedContainer.name}
+          onClose={() => setSelectedContainer(null)}
+        />
+      )}
     </div>
   );
 }
