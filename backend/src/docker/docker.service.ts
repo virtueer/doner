@@ -59,6 +59,28 @@ export class DockerService {
     return this.docker.getVolume(name).inspect();
   }
 
+  async attachToContainer(containerId: string, shell: string) {
+    const container = this.docker.getContainer(containerId);
+    
+    // Create an exec instance
+    const exec = await container.exec({
+      AttachStdin: true,
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: true,
+      Cmd: [shell],
+    });
+
+    // Start the exec session
+    const stream = await exec.start({
+      hijack: true,
+      stdin: true,
+      Tty: true,
+    });
+
+    return stream;
+  }
+
   async getNetworkGraph() {
     try {
       const networks = await this.docker.listNetworks();

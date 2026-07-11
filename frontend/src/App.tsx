@@ -18,7 +18,8 @@ import { ContainerNode } from './components/ContainerNode';
 import { VolumeNode } from './components/VolumeNode';
 import { NodeDetailsSheet } from './components/NodeDetailsSheet';
 import { LogsTerminal } from './components/LogsTerminal';
-import { RefreshCw, Sparkles } from 'lucide-react';
+import { AttachScreen } from './components/AttachScreen';
+import { RefreshCw, Sparkles, Search } from 'lucide-react';
 
 const nodeTypes = {
   networkNode: NetworkNode,
@@ -36,10 +37,10 @@ function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
   const volumes = nodes.filter((n) => n.type === 'volumeNode');
 
   const COL_NETWORK = 0;
-  const COL_CONTAINER = 420;
-  const COL_VOLUME = 880;
-  const ROW_GAP = 140;
-  const GROUP_GAP = 60;
+  const COL_CONTAINER = 500;
+  const COL_VOLUME = 1000;
+  const ROW_GAP = 200;
+  const GROUP_GAP = 100;
 
   // Build maps: network -> containers, container -> volumes
   const netToContainers = new Map<string, string[]>();
@@ -147,7 +148,21 @@ function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
     if (connectedContYs.length > 0) {
       const minY = Math.min(...connectedContYs);
       const maxY = Math.max(...connectedContYs);
-      volumePositions.set(vol.id, { x: COL_VOLUME, y: (minY + maxY) / 2 });
+      let targetY = (minY + maxY) / 2;
+
+      // Prevent overlapping
+      let overlap = true;
+      while (overlap) {
+        overlap = false;
+        for (const [_, pos] of volumePositions) {
+          if (Math.abs(pos.y - targetY) < 100) {
+            targetY += 120;
+            overlap = true;
+            break;
+          }
+        }
+      }
+      volumePositions.set(vol.id, { x: COL_VOLUME, y: targetY });
     } else {
       volumePositions.set(vol.id, { x: COL_VOLUME, y: fallbackY });
       fallbackY += ROW_GAP;
@@ -169,6 +184,7 @@ function Flow() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const { fitView } = useReactFlow();
   const rawDataRef = useRef<{ nodes: any[]; edges: any[] } | null>(null);
 
@@ -256,10 +272,27 @@ function Flow() {
     setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50);
   }, [edges, setNodes, fitView]);
 
+  // Apply search highlighting
+  const filteredNodes = nodes.map((node) => {
+    if (!searchQuery.trim()) {
+      return { ...node, style: { ...node.style, opacity: 1 } };
+    }
+    const label = (node.data?.label as string)?.toLowerCase() || '';
+    const match = label.includes(searchQuery.toLowerCase());
+    return {
+      ...node,
+      style: {
+        ...node.style,
+        opacity: match ? 1 : 0.2,
+        transition: 'opacity 0.2s',
+      },
+    };
+  });
+
   return (
     <>
       <ReactFlow
-        nodes={nodes}
+        nodes={filteredNodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
@@ -278,6 +311,20 @@ function Flow() {
       >
         <Background color="#555" gap={16} />
         <Controls />
+
+        {/* Search Bar (Top Left) */}
+        <Panel position="top-left" className="m-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search nodes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-4 py-2 bg-card/90 backdrop-blur-sm border border-border/50 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary shadow-sm w-64 transition-all"
+            />
+          </div>
+        </Panel>
 
         {/* Floating toolbar top-right */}
         <Panel position="top-right" className="flex items-center gap-2 m-3">
@@ -331,10 +378,17 @@ function App() {
   const params = new URLSearchParams(window.location.search);
   const logsParam = params.get('logs');
   const nameParam = params.get('name');
+  const attachParam = params.get('attach');
+  const shellParam = params.get('shell') || '/bin/sh';
   const isTerminalMode = !!logsParam;
+  const isAttachMode = !!attachParam;
 
   if (isTerminalMode && logsParam && nameParam) {
     return <LogsTerminal containerId={logsParam} containerName={nameParam} />;
+  }
+
+  if (isAttachMode && attachParam && nameParam) {
+    return <AttachScreen containerId={attachParam} containerName={nameParam} shell={shellParam} />;
   }
 
   return (

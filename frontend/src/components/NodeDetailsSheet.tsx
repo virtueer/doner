@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Search, Terminal, ExternalLink, Info } from 'lucide-react';
+import { X, Search, Terminal, ExternalLink, Info, Play } from 'lucide-react';
 import { renderAnsiLine } from '@/lib/ansi';
+import { AttachTerminal } from './AttachTerminal';
 
 // --- Sub-component for Logs Streaming ---
 function ContainerLogs({ containerId, containerName }: { containerId: string; containerName: string }) {
@@ -95,7 +96,9 @@ export function NodeDetailsSheet({
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'inspect' | 'logs'>('inspect');
+  const [activeTab, setActiveTab] = useState<'inspect' | 'logs' | 'attach'>('inspect');
+  const [attachShell, setAttachShell] = useState('/bin/sh');
+  const [isAttached, setIsAttached] = useState(false);
 
   const rawId = nodeId.replace(/^(cont-|net-|vol-)/, '');
   const isContainer = nodeType === 'containerNode';
@@ -216,17 +219,30 @@ export function NodeDetailsSheet({
               </div>
             </button>
             {isContainer && (
-              <button
-                onClick={() => setActiveTab('logs')}
-                className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'logs' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <Terminal className="h-4 w-4" />
-                  Logs
-                </div>
-              </button>
+              <>
+                <button
+                  onClick={() => setActiveTab('logs')}
+                  className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'logs' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Terminal className="h-4 w-4" />
+                    Logs
+                  </div>
+                </button>
+                <button
+                  onClick={() => setActiveTab('attach')}
+                  className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'attach' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Play className="h-4 w-4" />
+                    Attach
+                  </div>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -282,6 +298,64 @@ export function NodeDetailsSheet({
 
           {activeTab === 'logs' && isContainer && (
             <ContainerLogs containerId={rawId} containerName={nodeName} />
+          )}
+
+          {activeTab === 'attach' && isContainer && (
+            <div className="flex flex-col h-full bg-[#0c0c0c] relative">
+              <div className="flex items-center justify-between px-4 py-2 bg-[#1a1a1a] border-b border-green-900/30">
+                <div className="flex items-center gap-4">
+                  <select
+                    value={attachShell}
+                    onChange={(e) => setAttachShell(e.target.value)}
+                    disabled={isAttached}
+                    className="bg-[#2a2a2a] text-xs text-white px-2 py-1 rounded border border-white/10 outline-none"
+                  >
+                    <option value="/bin/sh">/bin/sh</option>
+                    <option value="/bin/bash">/bin/bash</option>
+                  </select>
+                  {!isAttached ? (
+                    <button
+                      onClick={() => setIsAttached(true)}
+                      className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition-colors"
+                    >
+                      Connect
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setIsAttached(false)}
+                      className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-xs rounded transition-colors"
+                    >
+                      Disconnect
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}?attach=${encodeURIComponent(rawId)}&shell=${encodeURIComponent(attachShell)}&name=${encodeURIComponent(nodeName)}`;
+                      window.open(url, '_blank');
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Open in new tab
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                {isAttached ? (
+                  <AttachTerminal 
+                    containerId={rawId} 
+                    shell={attachShell} 
+                    onDisconnect={() => setIsAttached(false)} 
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+                    Select a shell and click Connect to start an interactive session.
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>

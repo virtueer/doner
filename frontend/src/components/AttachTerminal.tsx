@@ -1,0 +1,90 @@
+import { useEffect, useRef } from 'react';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import '@xterm/xterm/css/xterm.css';
+
+interface AttachTerminalProps {
+  containerId: string;
+  shell: string;
+  onDisconnect?: () => void;
+}
+
+export function AttachTerminal({ containerId, shell, onDisconnect }: AttachTerminalProps) {
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const termInstance = useRef<Terminal | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    if (!terminalRef.current) return;
+
+    // Initialize xterm.js
+    const term = new Terminal({
+      cursorBlink: true,
+      theme: {
+        background: '#0c0c0c',
+        foreground: '#4ade80',
+        cursor: '#4ade80',
+        selectionBackground: 'rgba(74, 222, 128, 0.3)',
+      },
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+      fontSize: 12,
+    });
+    
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    
+    term.open(terminalRef.current);
+    fitAddon.fit();
+    termInstance.current = term;
+
+    // Handle resize
+    const handleResize = () => {
+      fitAddon.fit();
+    };
+    window.addEventListener('resize', handleResize);
+
+    // Connect WebSocket
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = import.meta.env.VITE_API_URL ? new URL(import.meta.env.VITE_API_URL).host : window.location.host;
+    // If backend is running on port 3000 during dev, we use that
+    const apiUrl = import.meta.env.VITE_API_URL || `http://localhost:3000`;
+    const wsUrl = apiUrl.replace(/^http/, 'ws');
+    
+    const ws = new WebSocket(`${wsUrl}/api/attach?containerId=${containerId}&shell=${encodeURIComponent(shell)}`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      term.writeln(`\x1b[32mConnected to ${containerId} via ${shell}\x1b[0m`);
+    };
+
+    ws.onmessage = (event) => {
+      term.write(event.data);
+    };
+
+    ws.onclose = () => {
+      term.writeln('\r\n\x1b[31mConnection closed.\x1b[0m');
+      if (onDisconnect) onDisconnect();
+    };
+
+    ws.onerror = (error) => {
+      term.writeln(`\r\n\x1b[31mWebSocket error: ${error}\x1b[0m`);
+    };
+
+    // Handle input
+    term.onData((data) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(data);
+      }
+    });
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+      term.dispose();
+    };
+  }, [containerId, shell, onDisconnect]);
+
+  return <div ref={terminalRef} className="w-full h-full overflow-hidden" style={{ padding: '8px' }} />;
+}

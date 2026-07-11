@@ -1,0 +1,37 @@
+import { useEffect } from 'react';
+import { Terminal } from 'lucide-react';
+import { AttachTerminal } from './AttachTerminal';
+
+interface AttachScreenProps {
+  containerId: string;
+  containerName: string;
+  shell: string;
+}
+
+export function AttachScreen({ containerId, containerName, shell }: AttachScreenProps) {
+  useEffect(() => {
+    document.title = `${containerName} — Attach (${shell})`;
+  }, [containerName, shell]);
+
+  return (
+    <div className="h-screen w-screen bg-[#0c0c0c] text-green-400 flex flex-col font-mono text-sm overflow-hidden">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-4 py-2 bg-[#1a1a1a] border-b border-green-900/30 shrink-0">
+        <div className="flex items-center gap-2">
+          <Terminal className="h-4 w-4 text-green-500" />
+          <span className="text-sm text-green-300 font-semibold">{containerName}</span>
+          <span className="text-xs text-green-700">— attach ({shell})</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-xs text-green-600">connected</span>
+        </div>
+      </div>
+
+      {/* Terminal Container */}
+      <div className="flex-1 overflow-hidden">
+        <AttachTerminal containerId={containerId} shell={shell} />
+      </div>
+    </div>
+  );
+}
