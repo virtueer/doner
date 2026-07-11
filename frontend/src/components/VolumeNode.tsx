@@ -1,37 +1,41 @@
 import { Handle, Position } from '@xyflow/react';
 import { HardDrive } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export function VolumeNode({ data }: { data: any }) {
-  // Truncate long volume names for display
-  const displayName = data.label.length > 20
-    ? data.label.substring(0, 8) + '...' + data.label.substring(data.label.length - 8)
-    : data.label;
+  const displayName =
+    data.label.length > 20
+      ? data.label.substring(0, 8) + '...' + data.label.substring(data.label.length - 8)
+      : data.label;
 
   return (
-    <>
-      <Handle type="target" position={Position.Left} className="w-3 !bg-amber-500" />
-      <Card className="w-[260px] shadow-lg bg-card/95 backdrop-blur-md border-l-4 border-l-amber-500 p-2">
-        <CardHeader className="flex flex-row items-center justify-between pb-4">
-          <CardTitle className="text-base font-semibold truncate w-[170px]" title={data.label}>
-            {displayName}
-          </CardTitle>
-          <HardDrive className="h-5 w-5 text-amber-400" />
-        </CardHeader>
-        <CardContent className="space-y-3">
+    <div className="volume-node">
+      <Handle type="target" position={Position.Left} className="w-3 !bg-amber-400" />
+      <div className="w-[260px] rounded-xl border border-amber-500/40 bg-amber-950/50 backdrop-blur-md shadow-lg shadow-amber-500/10 p-0 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 bg-amber-500/15 border-b border-amber-500/20">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs bg-muted px-2 py-1 rounded text-muted-foreground">
-              {data.driver || 'local'}
+            <div className="p-1.5 rounded-md bg-amber-500/20">
+              <HardDrive className="h-4 w-4 text-amber-400" />
+            </div>
+            <span className="text-sm font-bold text-amber-100 truncate max-w-[140px]" title={data.label}>
+              {displayName}
             </span>
           </div>
-          {data.mountpoint && (
-            <div className="text-xs text-muted-foreground font-mono truncate bg-muted/50 p-2 rounded-md" title={data.mountpoint}>
+          <span className="font-mono text-[10px] bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded text-amber-300">
+            {data.driver || 'local'}
+          </span>
+        </div>
+        {data.mountpoint && (
+          <div className="px-4 py-2.5">
+            <div
+              className="text-[10px] font-mono truncate px-2 py-1.5 rounded-md bg-amber-500/5 border border-amber-500/10 text-amber-300/70"
+              title={data.mountpoint}
+            >
               {data.mountpoint}
             </div>
-          )}
-        </CardContent>
-      </Card>
-      <Handle type="source" position={Position.Right} className="w-3 !bg-amber-500" />
-    </>
+          </div>
+        )}
+      </div>
+      <Handle type="source" position={Position.Right} className="w-3 !bg-amber-400" />
+    </div>
   );
 }
