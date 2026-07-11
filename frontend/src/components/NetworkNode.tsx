@@ -6,7 +6,7 @@ export function NetworkNode({ data }: { data: any }) {
     <div className="network-node">
       <Handle type="target" position={Position.Right} className="w-3 !bg-indigo-400" />
       <div className="w-[280px] rounded-xl border border-indigo-500/40 bg-indigo-950/60 backdrop-blur-md shadow-lg shadow-indigo-500/10 p-0 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 bg-indigo-500/15 border-b border-indigo-500/20">
+        <div className="drag-handle flex items-center justify-between px-4 py-3 bg-indigo-500/15 border-b border-indigo-500/20 cursor-grab active:cursor-grabbing">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-md bg-indigo-500/20">
               <Network className="h-4 w-4 text-indigo-400" />

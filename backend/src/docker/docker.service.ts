@@ -57,47 +57,97 @@ export class DockerService {
       const edges: any[] = [];
 
       // Layout constants
-      const NETWORK_START_X = 0;
-      const CONTAINER_START_X = 500;
-      const VOLUME_START_X = 1000;
-      const Y_SPACING = 180;
+      const COL_NET = 0;
+      const COL_CONT = 420;
+      const COL_VOL = 880;
+      const ROW_GAP = 140;
+      const GROUP_GAP = 60; // extra gap between network groups
 
-      // --- Network Nodes (left column) ---
-      const networkMap = new Map<string, string>(); // networkId -> nodeId
-      networks.forEach((net, index) => {
-        const nodeId = `net-${net.Id}`;
-        networkMap.set(net.Id, nodeId);
+      // --- Step 1: Build container -> primary network mapping ---
+      const containerPrimaryNet = new Map<string, string>(); // containerId -> networkId
+      const netContainerIds = new Map<string, string[]>(); // networkId -> containerIds[]
+      networks.forEach((net) => netContainerIds.set(net.Id, []));
 
-        // Count containers in this network
-        let count = 0;
-        containers.forEach((container) => {
-          if (container.NetworkSettings?.Networks) {
-            Object.values(container.NetworkSettings.Networks).forEach((netInfo: any) => {
-              if (netInfo.NetworkID === net.Id) count++;
-            });
+      containers.forEach((container) => {
+        if (container.NetworkSettings?.Networks) {
+          const netEntries = Object.entries(container.NetworkSettings.Networks);
+          if (netEntries.length > 0) {
+            const [, firstNetInfo] = netEntries[0] as [string, any];
+            const primaryNetId = firstNetInfo.NetworkID;
+            containerPrimaryNet.set(container.Id, primaryNetId);
+            netContainerIds.get(primaryNetId)?.push(container.Id);
           }
-        });
-
-        nodes.push({
-          id: nodeId,
-          type: 'networkNode',
-          data: {
-            label: net.Name,
-            driver: net.Driver,
-            scope: net.Scope,
-            count,
-          },
-          position: { x: NETWORK_START_X, y: index * Y_SPACING },
-        });
+        }
       });
 
-      // --- Container Nodes (middle column) ---
-      containers.forEach((container, index) => {
+      // --- Step 2: Order containers grouped by primary network ---
+      const containerById = new Map(containers.map((c) => [c.Id, c]));
+      const orderedContainerIds: string[] = [];
+      const placed = new Set<string>();
+
+      // Group structure: track where each network's containers start/end
+      const networkGroups: Array<{
+        netId: string;
+        startIdx: number;
+        endIdx: number;
+      }> = [];
+
+      networks.forEach((net) => {
+        const connectedIds = netContainerIds.get(net.Id) || [];
+        if (connectedIds.length === 0) return;
+        const startIdx = orderedContainerIds.length;
+        connectedIds.forEach((cId) => {
+          if (!placed.has(cId)) {
+            orderedContainerIds.push(cId);
+            placed.add(cId);
+          }
+        });
+        const endIdx = orderedContainerIds.length - 1;
+        if (endIdx >= startIdx) {
+          networkGroups.push({ netId: net.Id, startIdx, endIdx });
+        }
+      });
+
+      // Add orphan containers (no network)
+      containers.forEach((c) => {
+        if (!placed.has(c.Id)) orderedContainerIds.push(c.Id);
+      });
+
+      // --- Step 3: Compute Y positions for containers with group gaps ---
+      const containerYPositions = new Map<string, number>();
+      let currentY = 0;
+      let prevGroupEnd = -1;
+
+      orderedContainerIds.forEach((cId, idx) => {
+        // Check if this is the start of a new group
+        const group = networkGroups.find((g) => g.startIdx === idx);
+        if (group && prevGroupEnd >= 0) {
+          currentY += GROUP_GAP; // extra gap between groups
+        }
+        containerYPositions.set(cId, currentY);
+        currentY += ROW_GAP;
+
+        // Track group end
+        const endGroup = networkGroups.find((g) => g.endIdx === idx);
+        if (endGroup) prevGroupEnd = idx;
+      });
+
+      // --- Step 4: Create container nodes ---
+      const networkMap = new Map<string, string>(); // dockerNetworkId -> nodeId
+      networks.forEach((net) => {
+        networkMap.set(net.Id, `net-${net.Id}`);
+      });
+
+      orderedContainerIds.forEach((cId) => {
+        const container = containerById.get(cId);
+        if (!container) return;
+
         const containerId = `cont-${container.Id}`;
         const containerName =
           container.Names[0]?.replace('/', '') || container.Id;
+        const y = containerYPositions.get(cId) ?? 0;
 
-        // Collect volume mounts for this container
+        // Collect volume mounts
         const mountNames: string[] = [];
         if (container.Mounts) {
           container.Mounts.forEach((mount: any) => {
@@ -116,13 +166,13 @@ export class DockerService {
             image: container.Image,
             mounts: mountNames,
           },
-          position: { x: CONTAINER_START_X, y: index * Y_SPACING },
+          position: { x: COL_CONT, y },
         });
 
-        // --- Edges: Container <-> Network ---
+        // Edges: Container -> Network
         if (container.NetworkSettings?.Networks) {
           Object.entries(container.NetworkSettings.Networks).forEach(
-            ([netName, netInfo]: [string, any]) => {
+            ([, netInfo]: [string, any]) => {
               const netNodeId = networkMap.get(netInfo.NetworkID);
               if (netNodeId) {
                 const ip = netInfo.IPAddress || '';
@@ -142,27 +192,69 @@ export class DockerService {
         }
       });
 
-      // --- Volume Nodes (right column) ---
-      const volumeList = volumes.Volumes || [];
-      volumeList.forEach((vol: any, index: number) => {
-        const volNodeId = `vol-${vol.Name}`;
+      // --- Step 5: Create network nodes centered on their container groups ---
+      const usedNetY = new Set<number>();
 
-        nodes.push({
-          id: volNodeId,
-          type: 'volumeNode',
-          data: {
-            label: vol.Name,
-            driver: vol.Driver,
-            mountpoint: vol.Mountpoint,
-          },
-          position: { x: VOLUME_START_X, y: index * Y_SPACING },
+      networks.forEach((net) => {
+        const nodeId = `net-${net.Id}`;
+        const connectedIds = netContainerIds.get(net.Id) || [];
+
+        // Count containers in this network
+        let count = 0;
+        containers.forEach((container) => {
+          if (container.NetworkSettings?.Networks) {
+            Object.values(container.NetworkSettings.Networks).forEach(
+              (netInfo: any) => {
+                if (netInfo.NetworkID === net.Id) count++;
+              },
+            );
+          }
         });
 
-        // --- Edges: Container <-> Volume ---
+        // Center network Y on connected containers
+        let netY = 0;
+        if (connectedIds.length > 0) {
+          const ys = connectedIds.map(
+            (id) => containerYPositions.get(id) ?? 0,
+          );
+          const minY = Math.min(...ys);
+          const maxY = Math.max(...ys);
+          netY = (minY + maxY) / 2;
+        } else {
+          // Put disconnected networks after the last used Y
+          netY = currentY;
+          currentY += ROW_GAP;
+        }
+
+        nodes.push({
+          id: nodeId,
+          type: 'networkNode',
+          data: {
+            label: net.Name,
+            driver: net.Driver,
+            scope: net.Scope,
+            count,
+          },
+          position: { x: COL_NET, y: netY },
+        });
+      });
+
+      // --- Step 6: Create volume nodes aligned to connected containers ---
+      const volumeList = volumes.Volumes || [];
+      const volumeYUsed: number[] = [];
+
+      volumeList.forEach((vol: any) => {
+        const volNodeId = `vol-${vol.Name}`;
+
+        // Find all containers that use this volume
+        const connectedContainerYs: number[] = [];
         containers.forEach((container) => {
           if (container.Mounts) {
             container.Mounts.forEach((mount: any) => {
               if (mount.Type === 'volume' && mount.Name === vol.Name) {
+                const y = containerYPositions.get(container.Id);
+                if (y !== undefined) connectedContainerYs.push(y);
+
                 const containerId = `cont-${container.Id}`;
                 edges.push({
                   id: `edge-${containerId}-${volNodeId}`,
@@ -177,6 +269,30 @@ export class DockerService {
               }
             });
           }
+        });
+
+        // Position volume at center of its connected containers, or sequentially
+        let volY: number;
+        if (connectedContainerYs.length > 0) {
+          const minY = Math.min(...connectedContainerYs);
+          const maxY = Math.max(...connectedContainerYs);
+          volY = (minY + maxY) / 2;
+        } else {
+          volY = volumeYUsed.length > 0
+            ? Math.max(...volumeYUsed) + ROW_GAP
+            : currentY;
+        }
+        volumeYUsed.push(volY);
+
+        nodes.push({
+          id: volNodeId,
+          type: 'volumeNode',
+          data: {
+            label: vol.Name,
+            driver: vol.Driver,
+            mountpoint: vol.Mountpoint,
+          },
+          position: { x: COL_VOL, y: volY },
         });
       });
 

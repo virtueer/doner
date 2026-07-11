@@ -11,7 +11,7 @@ export function VolumeNode({ data }: { data: any }) {
     <div className="volume-node">
       <Handle type="target" position={Position.Left} className="w-3 !bg-amber-400" />
       <div className="w-[260px] rounded-xl border border-amber-500/40 bg-amber-950/50 backdrop-blur-md shadow-lg shadow-amber-500/10 p-0 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 bg-amber-500/15 border-b border-amber-500/20">
+        <div className="drag-handle flex items-center justify-between px-4 py-3 bg-amber-500/15 border-b border-amber-500/20 cursor-grab active:cursor-grabbing">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-md bg-amber-500/20">
               <HardDrive className="h-4 w-4 text-amber-400" />

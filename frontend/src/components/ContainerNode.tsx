@@ -19,7 +19,7 @@ export function ContainerNode({ data }: { data: any }) {
         }}
       >
         <div
-          className="flex items-center justify-between px-4 py-3 border-b"
+          className="drag-handle flex items-center justify-between px-4 py-3 border-b cursor-grab active:cursor-grabbing"
           style={{
             backgroundColor: isRunning ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
             borderColor: isRunning ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',

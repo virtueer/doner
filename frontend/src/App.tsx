@@ -28,7 +28,7 @@ const nodeTypes = {
 
 /**
  * Auto-layout: places networks on left, containers in middle, volumes on right.
- * Sorts containers so those sharing a network are grouped vertically.
+ * Groups containers by their primary network so edges stay short.
  */
 function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
   const networks = nodes.filter((n) => n.type === 'networkNode');
@@ -36,24 +36,21 @@ function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
   const volumes = nodes.filter((n) => n.type === 'volumeNode');
 
   const COL_NETWORK = 0;
-  const COL_CONTAINER = 500;
-  const COL_VOLUME = 1050;
-  const Y_GAP = 200;
+  const COL_CONTAINER = 420;
+  const COL_VOLUME = 880;
+  const ROW_GAP = 140;
+  const GROUP_GAP = 60;
 
-  // Build a map: networkNodeId -> list of containerNodeIds connected to it
+  // Build maps: network -> containers, container -> volumes
   const netToContainers = new Map<string, string[]>();
+  const contToVolumes = new Map<string, string[]>();
+
   edges.forEach((e) => {
     if (e.sourceHandle === 'net-out') {
-      // source=container, target=network
       const arr = netToContainers.get(e.target) || [];
       arr.push(e.source);
       netToContainers.set(e.target, arr);
     }
-  });
-
-  // Build a map: containerNodeId -> list of volumeNodeIds connected to it
-  const contToVolumes = new Map<string, string[]>();
-  edges.forEach((e) => {
     if (e.sourceHandle === 'vol-out') {
       const arr = contToVolumes.get(e.source) || [];
       arr.push(e.target);
@@ -61,12 +58,15 @@ function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
     }
   });
 
-  // Sort containers: group by their primary network
+  // Order containers grouped by primary network
   const placed = new Set<string>();
   const orderedContainers: Node[] = [];
+  const groupRanges: Array<{ netId: string; start: number; end: number }> = [];
 
   networks.forEach((net) => {
     const connectedIds = netToContainers.get(net.id) || [];
+    if (connectedIds.length === 0) return;
+    const start = orderedContainers.length;
     connectedIds.forEach((cId) => {
       if (!placed.has(cId)) {
         const node = containers.find((c) => c.id === cId);
@@ -76,57 +76,82 @@ function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
         }
       }
     });
+    const end = orderedContainers.length - 1;
+    if (end >= start) groupRanges.push({ netId: net.id, start, end });
   });
-  // Add remaining unconnected containers
   containers.forEach((c) => {
     if (!placed.has(c.id)) orderedContainers.push(c);
   });
 
-  // Sort volumes: group by their connected container order
+  // Compute Y positions with group gaps
+  const containerPositions = new Map<string, { x: number; y: number }>();
+  let currentY = 0;
+  let prevEnd = -1;
+
+  orderedContainers.forEach((c, i) => {
+    const group = groupRanges.find((g) => g.start === i);
+    if (group && prevEnd >= 0) currentY += GROUP_GAP;
+    containerPositions.set(c.id, { x: COL_CONTAINER, y: currentY });
+    currentY += ROW_GAP;
+    const endGroup = groupRanges.find((g) => g.end === i);
+    if (endGroup) prevEnd = i;
+  });
+
+  // Network positions: centered on their container group
+  const networkPositions = new Map<string, { x: number; y: number }>();
+  let fallbackY = currentY;
+
+  networks.forEach((net) => {
+    const group = groupRanges.find((g) => g.netId === net.id);
+    if (group) {
+      const ys: number[] = [];
+      for (let i = group.start; i <= group.end; i++) {
+        const pos = containerPositions.get(orderedContainers[i].id);
+        if (pos) ys.push(pos.y);
+      }
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      networkPositions.set(net.id, { x: COL_NETWORK, y: (minY + maxY) / 2 });
+    } else {
+      networkPositions.set(net.id, { x: COL_NETWORK, y: fallbackY });
+      fallbackY += ROW_GAP;
+    }
+  });
+
+  // Volume positions: centered on their connected containers
   const placedVols = new Set<string>();
-  const orderedVolumes: Node[] = [];
+  const volumePositions = new Map<string, { x: number; y: number }>();
+
   orderedContainers.forEach((cont) => {
     const volIds = contToVolumes.get(cont.id) || [];
     volIds.forEach((vId) => {
-      if (!placedVols.has(vId)) {
-        const vol = volumes.find((v) => v.id === vId);
-        if (vol) {
-          orderedVolumes.push(vol);
-          placedVols.add(vId);
-        }
-      }
+      if (!placedVols.has(vId)) placedVols.add(vId);
     });
   });
-  volumes.forEach((v) => {
-    if (!placedVols.has(v.id)) orderedVolumes.push(v);
-  });
 
-  // Assign positions
-  // Networks: center them vertically relative to their connected containers
-  const containerPositions = new Map<string, { x: number; y: number }>();
-  orderedContainers.forEach((c, i) => {
-    containerPositions.set(c.id, { x: COL_CONTAINER, y: i * Y_GAP });
-  });
+  const orderedVolumes = [
+    ...volumes.filter((v) => placedVols.has(v.id)),
+    ...volumes.filter((v) => !placedVols.has(v.id)),
+  ];
 
-  const volumePositions = new Map<string, { x: number; y: number }>();
-  orderedVolumes.forEach((v, i) => {
-    volumePositions.set(v.id, { x: COL_VOLUME, y: i * Y_GAP });
-  });
+  orderedVolumes.forEach((vol) => {
+    // Find all containers connected to this volume
+    const connectedContYs: number[] = [];
+    edges.forEach((e) => {
+      if (e.sourceHandle === 'vol-out' && e.target === vol.id) {
+        const pos = containerPositions.get(e.source);
+        if (pos) connectedContYs.push(pos.y);
+      }
+    });
 
-  // Position networks at the vertical center of their connected containers
-  const networkPositions = new Map<string, { x: number; y: number }>();
-  let nextNetY = 0;
-  networks.forEach((net) => {
-    const connectedIds = netToContainers.get(net.id) || [];
-    if (connectedIds.length > 0) {
-      const ys = connectedIds
-        .map((id) => containerPositions.get(id)?.y ?? 0);
-      const avgY = ys.reduce((a, b) => a + b, 0) / ys.length;
-      networkPositions.set(net.id, { x: COL_NETWORK, y: avgY });
+    if (connectedContYs.length > 0) {
+      const minY = Math.min(...connectedContYs);
+      const maxY = Math.max(...connectedContYs);
+      volumePositions.set(vol.id, { x: COL_VOLUME, y: (minY + maxY) / 2 });
     } else {
-      networkPositions.set(net.id, { x: COL_NETWORK, y: nextNetY });
+      volumePositions.set(vol.id, { x: COL_VOLUME, y: fallbackY });
+      fallbackY += ROW_GAP;
     }
-    nextNetY = (networkPositions.get(net.id)?.y ?? 0) + Y_GAP;
   });
 
   return nodes.map((node) => {
@@ -220,7 +245,8 @@ function Flow() {
     name: string;
   } | null>(null);
 
-  const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+  // Double-click to open logs — prevents accidental opens when panning
+  const handleNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
     if (node.type === 'containerNode') {
       const rawId = node.id.replace('cont-', '');
       setSelectedContainer({ id: rawId, name: node.data.label as string });
@@ -230,7 +256,6 @@ function Flow() {
   const handleAutoLayout = useCallback(() => {
     setNodes((currentNodes) => {
       const laid = autoLayout(currentNodes, edges);
-      // Clear saved positions so they don't override
       localStorage.removeItem('flow-nodes-state');
       return laid;
     });
@@ -245,15 +270,17 @@ function Flow() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onNodeClick={handleNodeClick}
+        onNodeDoubleClick={handleNodeDoubleClick}
         nodeTypes={nodeTypes}
         fitView
         className="bg-background"
         colorMode="dark"
         proOptions={{ hideAttribution: true }}
         minZoom={0.05}
-        nodeDragThreshold={5}
+        nodeDragThreshold={8}
         selectNodesOnDrag={false}
+        nodesFocusable={false}
+        edgesFocusable={false}
       >
         <Background color="#555" gap={16} />
         <Controls />
