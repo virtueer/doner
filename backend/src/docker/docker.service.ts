@@ -47,6 +47,18 @@ export class DockerService {
     })();
   }
 
+  async inspectContainer(id: string) {
+    return this.docker.getContainer(id).inspect();
+  }
+
+  async inspectNetwork(id: string) {
+    return this.docker.getNetwork(id).inspect();
+  }
+
+  async inspectVolume(name: string) {
+    return this.docker.getVolume(name).inspect();
+  }
+
   async getNetworkGraph() {
     try {
       const networks = await this.docker.listNetworks();

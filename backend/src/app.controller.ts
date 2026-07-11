@@ -23,4 +23,20 @@ export class AppController {
     }
     res.end();
   }
+
+  @Get('inspect/:type/:id')
+  async inspectEntity(@Param('type') type: string, @Param('id') id: string) {
+    try {
+      if (type === 'containerNode') {
+        return await this.dockerService.inspectContainer(id);
+      } else if (type === 'networkNode') {
+        return await this.dockerService.inspectNetwork(id);
+      } else if (type === 'volumeNode') {
+        return await this.dockerService.inspectVolume(id);
+      }
+      return { error: 'Unknown entity type' };
+    } catch (e: any) {
+      return { error: e.message || 'Error inspecting entity' };
+    }
+  }
 }

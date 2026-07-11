@@ -16,6 +16,7 @@ import '@xyflow/react/dist/style.css';
 import { NetworkNode } from './components/NetworkNode';
 import { ContainerNode } from './components/ContainerNode';
 import { VolumeNode } from './components/VolumeNode';
+import { InspectSheet } from './components/InspectSheet';
 import { LogsSheet } from './components/LogsSheet';
 import { LogsTerminal } from './components/LogsTerminal';
 import { RefreshCw, Sparkles } from 'lucide-react';
@@ -237,6 +238,21 @@ function Flow() {
     name: string;
   } | null>(null);
 
+  const [inspectNode, setInspectNode] = useState<{
+    id: string;
+    name: string;
+    type: string;
+  } | null>(null);
+
+  // Single-click to open inspect sheet
+  const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    setInspectNode({
+      id: node.id,
+      name: node.data.label as string,
+      type: node.type || 'unknown',
+    });
+  }, []);
+
   // Double-click to open logs — prevents accidental opens when panning
   const handleNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
     if (node.type === 'containerNode') {
@@ -262,6 +278,7 @@ function Flow() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
         nodeTypes={nodeTypes}
         fitView
@@ -311,6 +328,15 @@ function Flow() {
           </Panel>
         )}
       </ReactFlow>
+
+      {inspectNode && (
+        <InspectSheet
+          nodeId={inspectNode.id}
+          nodeName={inspectNode.name}
+          nodeType={inspectNode.type}
+          onClose={() => setInspectNode(null)}
+        />
+      )}
 
       {selectedContainer && (
         <LogsSheet
