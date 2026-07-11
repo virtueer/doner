@@ -6,12 +6,15 @@ import {
   useNodesState,
   useEdgesState,
   addEdge,
-  type Edge
+  type Edge,
+  type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { NetworkNode } from './components/NetworkNode';
 import { ContainerNode } from './components/ContainerNode';
 import { VolumeNode } from './components/VolumeNode';
+import { LogsSheet } from './components/LogsSheet';
+import { LogsTerminal } from './components/LogsTerminal';
 import { Layout } from 'lucide-react';
 
 const nodeTypes = {
@@ -21,6 +24,16 @@ const nodeTypes = {
 };
 
 function App() {
+  // Check for terminal mode via URL params
+  const params = new URLSearchParams(window.location.search);
+  const logsParam = params.get('logs');
+  const nameParam = params.get('name');
+  const isTerminalMode = !!logsParam;
+
+  if (isTerminalMode && logsParam && nameParam) {
+    return <LogsTerminal containerId={logsParam} containerName={nameParam} />;
+  }
+
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +105,16 @@ function App() {
 
   const onConnect = useCallback((params: any) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
 
+  const [selectedContainer, setSelectedContainer] = useState<{ id: string; name: string } | null>(null);
+
+  const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    if (node.type === 'containerNode') {
+      // Extract the raw container ID (strip the "cont-" prefix)
+      const rawId = node.id.replace('cont-', '');
+      setSelectedContainer({ id: rawId, name: node.data.label as string });
+    }
+  }, []);
+
   return (
     <div className="w-full h-screen dark bg-background text-foreground flex flex-col">
       <header className="p-2 border-b flex items-center justify-between bg-card z-10">
@@ -122,6 +145,7 @@ function App() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onNodeClick={handleNodeClick}
           nodeTypes={nodeTypes}
           fitView
           className="bg-background"
@@ -133,6 +157,14 @@ function App() {
           <Controls />
         </ReactFlow>
       </main>
+
+      {selectedContainer && (
+        <LogsSheet
+          containerId={selectedContainer.id}
+          containerName={selectedContainer.name}
+          onClose={() => setSelectedContainer(null)}
+        />
+      )}
     </div>
   );
 }

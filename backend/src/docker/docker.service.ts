@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import Docker from 'dockerode';
+import type { Container } from 'dockerode';
 
 @Injectable()
 export class DockerService {
@@ -7,6 +8,43 @@ export class DockerService {
 
   constructor() {
     this.docker = new Docker(); // Defaults to standard socket/pipe
+  }
+
+  async getContainerLogsStream(containerId: string): Promise<AsyncIterable<string>> {
+    const container: Container = this.docker.getContainer(containerId);
+    const stream = await container.logs({
+      stdout: true,
+      stderr: true,
+      follow: true,
+      tail: 100,
+      timestamps: true,
+    });
+
+    return (async function* () {
+      // Docker raw log stream: each message has an 8-byte header
+      // (1 byte stream type + 3 bytes padding + 4 bytes length)
+      let dataBuffer = Buffer.alloc(0);
+
+      for await (const chunk of stream as any) {
+        dataBuffer = Buffer.concat([dataBuffer, Buffer.from(chunk)]);
+
+        while (dataBuffer.length >= 8) {
+          const msgLength = dataBuffer.readUInt32BE(4);
+          if (dataBuffer.length < 8 + msgLength) break;
+
+          const message = dataBuffer.slice(8, 8 + msgLength).toString('utf8');
+          dataBuffer = dataBuffer.slice(8 + msgLength);
+
+          const lines = message.split('\n');
+          for (const line of lines) {
+            if (line.trim()) {
+              // Strip ANSI escape sequences
+              yield line.replace(/\x1b\[[0-9;]*m/g, '');
+            }
+          }
+        }
+      }
+    })();
   }
 
   async getNetworkGraph() {

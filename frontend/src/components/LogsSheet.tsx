@@ -1,0 +1,111 @@
+import { useState, useEffect, useRef } from 'react';
+import { X, Terminal, ExternalLink } from 'lucide-react';
+import { renderAnsiLine } from '@/lib/ansi';
+
+interface LogsSheetProps {
+  containerId: string;
+  containerName: string;
+  onClose: () => void;
+}
+
+function openTerminalTab(containerId: string, containerName: string) {
+  const url = `${window.location.origin}?logs=${encodeURIComponent(containerId)}&name=${encodeURIComponent(containerName)}`;
+  window.open(url, '_blank');
+}
+
+export function LogsSheet({ containerId, containerName, onClose }: LogsSheetProps) {
+  const [logs, setLogs] = useState<string[]>([]);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  useEffect(() => {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const es = new EventSource(`${apiUrl}/api/container-logs/${containerId}`);
+    eventSourceRef.current = es;
+
+    es.onmessage = (event) => {
+      let line: string;
+      try {
+        const parsed = JSON.parse(event.data);
+        line = typeof parsed === 'string' ? parsed : String(parsed ?? '');
+      } catch {
+        line = event.data ?? '';
+      }
+      if (line) {
+        setLogs((prev) => {
+          const updated = [...prev, line];
+          return updated.length > 500 ? updated.slice(-500) : updated;
+        });
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+    };
+
+    return () => {
+      es.close();
+    };
+  }, [containerId]);
+
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div
+        className="relative w-[75vw] h-full bg-card border-l border-border flex flex-col shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <Terminal className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold">{containerName}</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => openTerminalTab(containerId, containerName)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Open in new tab
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-md hover:bg-muted transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Prompt */}
+        <div className="px-4 py-2 text-green-700 text-xs border-b border-green-900/20 font-mono">
+          $ docker logs -f {containerName}
+        </div>
+
+        {/* Logs */}
+        <div className="flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed bg-[#0c0c0c]">
+          {logs.length === 0 && (
+            <div className="text-green-800 italic">Waiting for logs...</div>
+          )}
+          {logs.map((line, i) => (
+            <div key={i} className="whitespace-pre-wrap break-all text-green-400/90">
+              {renderAnsiLine(line)}
+            </div>
+          ))}
+          <div ref={logsEndRef} />
+        </div>
+
+        {/* Footer */}
+        <div className="p-2 border-t border-border text-[10px] text-muted-foreground flex items-center gap-2">
+          <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+          Streaming live
+        </div>
+      </div>
+    </div>
+  );
+}
