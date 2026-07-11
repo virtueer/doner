@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Terminal } from 'lucide-react';
 import { renderAnsiLine } from '@/lib/ansi';
 
 interface LogsTerminalProps {
