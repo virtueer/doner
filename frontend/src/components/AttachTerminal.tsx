@@ -44,8 +44,6 @@ export function AttachTerminal({ containerId, shell, onDisconnect }: AttachTermi
     window.addEventListener('resize', handleResize);
 
     // Connect WebSocket
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = import.meta.env.VITE_API_URL ? new URL(import.meta.env.VITE_API_URL).host : window.location.host;
     // If backend is running on port 3000 during dev, we use that
     const apiUrl = import.meta.env.VITE_API_URL || `http://localhost:3000`;
     const wsUrl = apiUrl.replace(/^http/, 'ws');
@@ -71,7 +69,7 @@ export function AttachTerminal({ containerId, shell, onDisconnect }: AttachTermi
     };
 
     // Handle input
-    term.onData((data) => {
+    term.onData((data: string) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(data);
       }

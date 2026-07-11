@@ -13,11 +13,11 @@ export class DockerGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  constructor(private dockerService: DockerService) {}
+  constructor(private dockerService: DockerService) { }
 
   async handleConnection(client: WebSocket, request: http.IncomingMessage) {
     try {
-      const url = new URL(request.url, `http://${request.headers.host}`);
+      const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
       const containerId = url.searchParams.get('containerId');
       const shell = url.searchParams.get('shell') || '/bin/sh';
 

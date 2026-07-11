@@ -27,6 +27,7 @@
     "@types/dockerode": "^4.0.1",
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.1",
     "globals": "^17.0.0",
     "source-map-support": "^0.5.21",
     "ts-loader": "^9.5.2",

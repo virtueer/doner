@@ -1,1 +1,30 @@
-pnpm -r build
+#!/bin/sh
+
+STAGED_FILES=$(git diff --cached --name-only)
+
+BUILD_FRONTEND=false
+BUILD_BACKEND=false
+
+if echo "$STAGED_FILES" | grep -q "^frontend/"; then
+  BUILD_FRONTEND=true
+fi
+
+if echo "$STAGED_FILES" | grep -q "^backend/"; then
+  BUILD_BACKEND=true
+fi
+
+if [ "$BUILD_FRONTEND" = true ]; then
+  echo "Changes detected in frontend. Running build..."
+  cd frontend
+  pnpm run build || exit 1
+  cd ..
+fi
+
+if [ "$BUILD_BACKEND" = true ]; then
+  echo "Changes detected in backend. Running build..."
+  cd backend
+  pnpm run build || exit 1
+  cd ..
+fi
+
+echo "Pre-commit hook finished successfully."
