@@ -260,18 +260,20 @@ export function NodeDetailsSheet({
 
                   {/* JSON Content */}
                   <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
-                    <div className="space-y-6">
-                      {rootKeys.map((key) => (
-                        <div key={key} id={`json-section-${key}`} className="scroll-mt-24">
-                          <h3 className="text-sm font-bold text-emerald-400 font-mono mb-2 border-b border-white/10 pb-1">
-                            "{key}":
-                          </h3>
-                          <pre className="text-xs font-mono text-gray-300 overflow-x-auto bg-black/20 p-4 rounded-lg">
-                            {JSON.stringify(data[key], null, 2)}
-                          </pre>
-                        </div>
-                      ))}
-                    </div>
+                    <pre className="text-xs font-mono text-gray-300 overflow-x-auto bg-black/20 p-4 rounded-lg m-0">
+                      {`{\n`}
+                      {rootKeys.map((key, index) => {
+                        const str = JSON.stringify({ [key]: data[key] }, null, 2);
+                        // Extract inner content without the outer braces
+                        const inner = str.substring(2, str.length - 2);
+                        return (
+                          <span key={key} id={`json-section-${key}`} className="scroll-mt-32 block">
+                            {inner}{index < rootKeys.length - 1 ? ',' : ''}
+                          </span>
+                        );
+                      })}
+                      {`}`}
+                    </pre>
                   </div>
                 </>
               )}
