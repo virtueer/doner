@@ -194,12 +194,6 @@ function Flow() {
             return {
               ...newNode,
               position: existing.position,
-              style: {
-                ...newNode.style,
-                width: existing.style?.width ?? newNode.style?.width,
-                height: existing.style?.height ?? newNode.style?.height,
-              },
-              measured: existing.measured ?? newNode.measured,
             };
           }
           return newNode;
@@ -227,8 +221,6 @@ function Flow() {
       const savedState = nodes.map((n: any) => ({
         id: n.id,
         position: n.position,
-        style: n.style,
-        measured: n.measured,
       }));
       localStorage.setItem('flow-nodes-state', JSON.stringify(savedState));
     }, 500);
