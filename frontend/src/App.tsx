@@ -16,8 +16,7 @@ import '@xyflow/react/dist/style.css';
 import { NetworkNode } from './components/NetworkNode';
 import { ContainerNode } from './components/ContainerNode';
 import { VolumeNode } from './components/VolumeNode';
-import { InspectSheet } from './components/InspectSheet';
-import { LogsSheet } from './components/LogsSheet';
+import { NodeDetailsSheet } from './components/NodeDetailsSheet';
 import { LogsTerminal } from './components/LogsTerminal';
 import { RefreshCw, Sparkles } from 'lucide-react';
 
@@ -233,32 +232,19 @@ function Flow() {
     [setEdges],
   );
 
-  const [selectedContainer, setSelectedContainer] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-
-  const [inspectNode, setInspectNode] = useState<{
+  const [selectedNode, setSelectedNode] = useState<{
     id: string;
     name: string;
     type: string;
   } | null>(null);
 
-  // Single-click to open inspect sheet
+  // Click to open NodeDetailsSheet (inspect & logs)
   const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    setInspectNode({
+    setSelectedNode({
       id: node.id,
       name: node.data.label as string,
       type: node.type || 'unknown',
     });
-  }, []);
-
-  // Double-click to open logs — prevents accidental opens when panning
-  const handleNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    if (node.type === 'containerNode') {
-      const rawId = node.id.replace('cont-', '');
-      setSelectedContainer({ id: rawId, name: node.data.label as string });
-    }
   }, []);
 
   const handleAutoLayout = useCallback(() => {
@@ -279,7 +265,6 @@ function Flow() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={handleNodeClick}
-        onNodeDoubleClick={handleNodeDoubleClick}
         nodeTypes={nodeTypes}
         fitView
         className="bg-background"
@@ -329,20 +314,12 @@ function Flow() {
         )}
       </ReactFlow>
 
-      {inspectNode && (
-        <InspectSheet
-          nodeId={inspectNode.id}
-          nodeName={inspectNode.name}
-          nodeType={inspectNode.type}
-          onClose={() => setInspectNode(null)}
-        />
-      )}
-
-      {selectedContainer && (
-        <LogsSheet
-          containerId={selectedContainer.id}
-          containerName={selectedContainer.name}
-          onClose={() => setSelectedContainer(null)}
+      {selectedNode && (
+        <NodeDetailsSheet
+          nodeId={selectedNode.id}
+          nodeName={selectedNode.name}
+          nodeType={selectedNode.type}
+          onClose={() => setSelectedNode(null)}
         />
       )}
     </>
