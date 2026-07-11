@@ -1,31 +1,35 @@
-import { NodeResizer } from '@xyflow/react';
-import { Server } from 'lucide-react';
+import { Handle, Position } from '@xyflow/react';
+import { Network } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export function NetworkNode({ data, selected }: { data: any, selected: boolean }) {
+export function NetworkNode({ data }: { data: any }) {
   return (
     <>
-      <NodeResizer minWidth={350} minHeight={200} isVisible={selected} lineClassName="border-primary" handleClassName="h-3 w-3 bg-primary rounded border-none" />
-      <div className="w-full h-full rounded-xl border-2 border-primary/40 bg-card/10 backdrop-blur-sm flex flex-col">
-        <div className="flex flex-row items-center justify-between p-4 bg-card/80 border-b border-primary/20 rounded-t-xl">
-          <div className="flex items-center gap-2">
-            <Server className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-bold" title={data.label}>
-              {data.label}
-            </h2>
-          </div>
+      <Handle type="target" position={Position.Right} className="w-3 !bg-indigo-500" />
+      <Card className="w-[280px] shadow-lg bg-card/95 backdrop-blur-md border-l-4 border-l-indigo-500 p-2">
+        <CardHeader className="flex flex-row items-center justify-between pb-4">
+          <CardTitle className="text-base font-semibold truncate w-[180px]" title={data.label}>
+            {data.label}
+          </CardTitle>
+          <Network className="h-5 w-5 text-indigo-400" />
+        </CardHeader>
+        <CardContent className="space-y-3">
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs bg-muted px-2 py-1 rounded text-muted-foreground">
               {data.driver}
             </span>
-            <span className="text-xs font-semibold px-2 py-1 bg-primary/20 text-primary rounded-full">
+            <span className="text-xs font-semibold px-2 py-1 bg-indigo-500/20 text-indigo-300 rounded-full">
               {data.count || 0} Containers
             </span>
           </div>
-        </div>
-        <div className="flex-1">
-          {/* Empty space for containers */}
-        </div>
-      </div>
+          {data.scope && (
+            <div className="text-xs text-muted-foreground">
+              Scope: <span className="font-medium text-foreground">{data.scope}</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <Handle type="source" position={Position.Left} className="w-3 !bg-indigo-500" />
     </>
   );
 }

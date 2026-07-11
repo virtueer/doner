@@ -13,104 +13,133 @@ export class DockerService {
     try {
       const networks = await this.docker.listNetworks();
       const containers = await this.docker.listContainers({ all: true });
+      const volumes = await this.docker.listVolumes();
 
       const nodes: any[] = [];
       const edges: any[] = [];
 
-      // Map to track which container belongs to which primary network
-      const containerPrimaryNet = new Map<string, string>();
+      // Layout constants
+      const NETWORK_START_X = 0;
+      const CONTAINER_START_X = 500;
+      const VOLUME_START_X = 1000;
+      const Y_SPACING = 180;
 
-      // Pre-calculate containers for each network to determine sizes
-      const networkContainers = new Map<string, any[]>();
-      networks.forEach(net => networkContainers.set(net.Id, []));
+      // --- Network Nodes (left column) ---
+      const networkMap = new Map<string, string>(); // networkId -> nodeId
+      networks.forEach((net, index) => {
+        const nodeId = `net-${net.Id}`;
+        networkMap.set(net.Id, nodeId);
 
-      containers.forEach(container => {
-        if (container.NetworkSettings && container.NetworkSettings.Networks) {
-          const netNames = Object.keys(container.NetworkSettings.Networks);
-          if (netNames.length > 0) {
-            const firstNetInfo = container.NetworkSettings.Networks[netNames[0]];
-            const primaryNetId = firstNetInfo.NetworkID;
-            containerPrimaryNet.set(container.Id, primaryNetId);
-
-            if (networkContainers.has(primaryNetId)) {
-              networkContainers.get(primaryNetId)?.push(container);
-            }
+        // Count containers in this network
+        let count = 0;
+        containers.forEach((container) => {
+          if (container.NetworkSettings?.Networks) {
+            Object.values(container.NetworkSettings.Networks).forEach((netInfo: any) => {
+              if (netInfo.NetworkID === net.Id) count++;
+            });
           }
-        }
-      });
-
-      let currentNetworkY = 0;
-
-      networks.forEach((net) => {
-        const netConts = networkContainers.get(net.Id) || [];
-        const count = netConts.length;
-
-        // Grid layout inside the network
-        const cols = Math.min(Math.max(1, count), 3); // max 3 columns
-        const rows = Math.ceil(count / 3) || 1;
-
-        const netWidth = cols * 360 + 80;
-        const netHeight = rows * 200 + 120;
-
-        nodes.push({
-          id: `net-${net.Id}`,
-          type: 'networkNode',
-          data: { label: net.Name, driver: net.Driver, scope: net.Scope, count },
-          position: { x: 0, y: currentNetworkY },
-          style: { width: netWidth, height: netHeight },
         });
 
-        currentNetworkY += netHeight + 100; // 100px gap between networks
+        nodes.push({
+          id: nodeId,
+          type: 'networkNode',
+          data: {
+            label: net.Name,
+            driver: net.Driver,
+            scope: net.Scope,
+            count,
+          },
+          position: { x: NETWORK_START_X, y: index * Y_SPACING },
+        });
       });
 
-      // Add Container Nodes
-      containers.forEach((container) => {
+      // --- Container Nodes (middle column) ---
+      containers.forEach((container, index) => {
         const containerId = `cont-${container.Id}`;
-        const containerName = container.Names[0]?.replace('/', '') || container.Id;
-        const primaryNetId = containerPrimaryNet.get(container.Id);
+        const containerName =
+          container.Names[0]?.replace('/', '') || container.Id;
 
-        let position = { x: 0, y: 0 };
-        let parentId = undefined;
-
-        if (primaryNetId) {
-          parentId = `net-${primaryNetId}`;
-          const netConts = networkContainers.get(primaryNetId);
-          const index = netConts!.findIndex(c => c.Id === container.Id);
-          const col = index % 3;
-          const row = Math.floor(index / 3);
-          position = { x: col * 350 + 40, y: row * 160 + 80 };
-        } else {
-          // If no network, put it somewhere outside
-          position = { x: -400, y: currentNetworkY };
-          currentNetworkY += 150;
+        // Collect volume mounts for this container
+        const mountNames: string[] = [];
+        if (container.Mounts) {
+          container.Mounts.forEach((mount: any) => {
+            if (mount.Type === 'volume' && mount.Name) {
+              mountNames.push(mount.Name);
+            }
+          });
         }
 
         nodes.push({
           id: containerId,
           type: 'containerNode',
-          data: { label: containerName, state: container.State, image: container.Image },
-          position,
-          parentId,
-          extent: parentId ? 'parent' : undefined,
+          data: {
+            label: containerName,
+            state: container.State,
+            image: container.Image,
+            mounts: mountNames,
+          },
+          position: { x: CONTAINER_START_X, y: index * Y_SPACING },
         });
 
-        // Add edges for secondary networks (if any)
-        if (container.NetworkSettings && container.NetworkSettings.Networks) {
-          Object.keys(container.NetworkSettings.Networks).forEach((netName) => {
-            const netInfo = container.NetworkSettings.Networks[netName];
-            if (netInfo.NetworkID !== primaryNetId) {
-              const targetNet = networks.find(n => n.Id === netInfo.NetworkID);
-              if (targetNet) {
+        // --- Edges: Container <-> Network ---
+        if (container.NetworkSettings?.Networks) {
+          Object.entries(container.NetworkSettings.Networks).forEach(
+            ([netName, netInfo]: [string, any]) => {
+              const netNodeId = networkMap.get(netInfo.NetworkID);
+              if (netNodeId) {
+                const ip = netInfo.IPAddress || '';
                 edges.push({
-                  id: `edge-${containerId}-net-${targetNet.Id}`,
+                  id: `edge-${containerId}-${netNodeId}`,
                   source: containerId,
-                  target: `net-${targetNet.Id}`,
+                  sourceHandle: 'net-out',
+                  target: netNodeId,
                   animated: container.State === 'running',
+                  label: ip || undefined,
+                  style: { stroke: '#6366f1' },
+                  labelStyle: { fill: '#a5b4fc', fontSize: 10 },
                 });
               }
-            }
-          });
+            },
+          );
         }
+      });
+
+      // --- Volume Nodes (right column) ---
+      const volumeList = volumes.Volumes || [];
+      volumeList.forEach((vol: any, index: number) => {
+        const volNodeId = `vol-${vol.Name}`;
+
+        nodes.push({
+          id: volNodeId,
+          type: 'volumeNode',
+          data: {
+            label: vol.Name,
+            driver: vol.Driver,
+            mountpoint: vol.Mountpoint,
+          },
+          position: { x: VOLUME_START_X, y: index * Y_SPACING },
+        });
+
+        // --- Edges: Container <-> Volume ---
+        containers.forEach((container) => {
+          if (container.Mounts) {
+            container.Mounts.forEach((mount: any) => {
+              if (mount.Type === 'volume' && mount.Name === vol.Name) {
+                const containerId = `cont-${container.Id}`;
+                edges.push({
+                  id: `edge-${containerId}-${volNodeId}`,
+                  source: containerId,
+                  sourceHandle: 'vol-out',
+                  target: volNodeId,
+                  animated: container.State === 'running',
+                  style: { stroke: '#f59e0b' },
+                  label: mount.Destination || undefined,
+                  labelStyle: { fill: '#fcd34d', fontSize: 10 },
+                });
+              }
+            });
+          }
+        });
       });
 
       return { nodes, edges };

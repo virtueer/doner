@@ -7,7 +7,8 @@ export function ContainerNode({ data }: { data: any }) {
 
   return (
     <>
-      <Handle type="target" position={Position.Top} className="w-16 !bg-blue-500" />
+      <Handle type="target" position={Position.Left} id="net-in" className="w-3 !bg-indigo-500" style={{ top: '40%' }} />
+      <Handle type="source" position={Position.Left} id="net-out" className="w-3 !bg-indigo-500" style={{ top: '60%' }} />
       <Card className="w-[310px] shadow-lg bg-card/95 backdrop-blur-md border-l-4 p-2" style={{ borderLeftColor: isRunning ? '#22c55e' : '#ef4444' }}>
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <CardTitle className="text-base font-semibold truncate w-[220px]" title={data.label}>
@@ -25,7 +26,8 @@ export function ContainerNode({ data }: { data: any }) {
           </div>
         </CardContent>
       </Card>
-      <Handle type="source" position={Position.Bottom} className="w-16 !bg-blue-500" />
+      <Handle type="source" position={Position.Right} id="vol-out" className="w-3 !bg-amber-500" style={{ top: '40%' }} />
+      <Handle type="target" position={Position.Right} id="vol-in" className="w-3 !bg-amber-500" style={{ top: '60%' }} />
     </>
   );
 }

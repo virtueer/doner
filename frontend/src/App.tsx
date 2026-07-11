@@ -11,11 +11,13 @@ import {
 import '@xyflow/react/dist/style.css';
 import { NetworkNode } from './components/NetworkNode';
 import { ContainerNode } from './components/ContainerNode';
+import { VolumeNode } from './components/VolumeNode';
 import { Layout } from 'lucide-react';
 
 const nodeTypes = {
   networkNode: NetworkNode,
   containerNode: ContainerNode,
+  volumeNode: VolumeNode,
 };
 
 function App() {
@@ -95,7 +97,7 @@ function App() {
       <header className="p-2 border-b flex items-center justify-between bg-card z-10">
         <div className="flex items-center gap-2">
           <Layout className="h-5 w-5 text-primary" />
-          <h1 className="text-lg font-bold m-0 p-0 tracking-tight">Docker Network Graph</h1>
+          <h1 className="text-lg font-bold m-0 p-0 tracking-tight">Docker Infrastructure Graph</h1>
         </div>
         <div className="flex items-center gap-3">
           {loading && <span className="text-xs text-muted-foreground animate-pulse">Updating...</span>}
