@@ -84,5 +84,5 @@ export function AttachTerminal({ containerId, shell, onDisconnect }: AttachTermi
     };
   }, [containerId, shell, onDisconnect]);
 
-  return <div ref={terminalRef} className="w-full h-full overflow-hidden" style={{ padding: '8px' }} />;
+  return <div ref={terminalRef} className="w-full h-full overflow-hidden" />;
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Res } from '@nestjs/common';
+import { Controller, Get, Post, Param, Res, Req } from '@nestjs/common';
 import { DockerService } from './docker/docker.service';
 
 @Controller('api')
@@ -11,13 +11,16 @@ export class AppController {
   }
 
   @Get('container-logs/:id')
-  async streamContainerLogs(@Param('id') id: string, @Res() res: any) {
+  async streamContainerLogs(@Param('id') id: string, @Res() res: any, @Req() req: any) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
-    const logs = await this.dockerService.getContainerLogsStream(id);
+    const ac = new AbortController();
+    req.on('close', () => ac.abort());
+
+    const logs = await this.dockerService.getContainerLogsStream(id, ac.signal);
     for await (const line of logs) {
       res.write(`data: ${JSON.stringify(line)}\n\n`);
     }
@@ -25,14 +28,17 @@ export class AppController {
   }
 
   @Get('container-stats/:id')
-  async streamContainerStats(@Param('id') id: string, @Res() res: any) {
+  async streamContainerStats(@Param('id') id: string, @Res() res: any, @Req() req: any) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
+    const ac = new AbortController();
+    req.on('close', () => ac.abort());
+
     try {
-      const stats = await this.dockerService.getContainerStatsStream(id);
+      const stats = await this.dockerService.getContainerStatsStream(id, ac.signal);
       for await (const data of stats) {
         res.write(`data: ${JSON.stringify(data)}\n\n`);
       }

@@ -19,7 +19,7 @@ import { VolumeNode } from './components/VolumeNode';
 import { NodeDetailsSheet } from './components/NodeDetailsSheet';
 import { LogsTerminal } from './components/LogsTerminal';
 import { AttachScreen } from './components/AttachScreen';
-import { RefreshCw, Sparkles, Search } from 'lucide-react';
+import { RefreshCw, Sparkles, Search, Box, Network, Database } from 'lucide-react';
 
 const nodeTypes = {
   networkNode: NetworkNode,
@@ -419,16 +419,43 @@ function Flow() {
             />
             {isSearchFocused && matchedNodes.length > 0 && (
               <div className="absolute top-full left-0 w-full mt-1 z-50 bg-card/95 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg overflow-hidden max-h-64 overflow-y-auto">
-                {matchedNodes.map((n, idx) => (
-                  <div
-                    key={n.id}
-                    onClick={() => handleSearchSelect(n.id)}
-                    className={`px-3 py-2 text-sm cursor-pointer transition-colors ${idx === searchSelectedIndex ? 'bg-primary/20 text-primary' : 'hover:bg-white/5 text-foreground'
+                {matchedNodes.map((n, idx) => {
+                  let Icon = Box;
+                  let iconColor = "text-green-500";
+                  let typeLabel = "Container";
+                  
+                  if (n.type === 'networkNode') {
+                    Icon = Network;
+                    iconColor = "text-indigo-500";
+                    typeLabel = "Network";
+                  } else if (n.type === 'volumeNode') {
+                    Icon = Database;
+                    iconColor = "text-amber-500";
+                    typeLabel = "Volume";
+                  } else if (n.type === 'containerNode') {
+                    Icon = Box;
+                    iconColor = n.data?.state === 'running' ? "text-green-500" : "text-slate-400";
+                    typeLabel = "Container";
+                  }
+
+                  return (
+                    <div
+                      key={n.id}
+                      onClick={() => handleSearchSelect(n.id)}
+                      className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors ${
+                        idx === searchSelectedIndex ? 'bg-primary/20 text-primary' : 'hover:bg-white/5 text-foreground'
                       }`}
-                  >
-                    {n.data?.label as string}
-                  </div>
-                ))}
+                    >
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <Icon className={`h-4 w-4 shrink-0 ${iconColor}`} />
+                        <span className="truncate">{n.data?.label as string}</span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider shrink-0 ml-2">
+                        {typeLabel}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

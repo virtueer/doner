@@ -14,7 +14,7 @@ export function AttachScreen({ containerId, containerName, shell }: AttachScreen
   }, [containerName, shell]);
 
   return (
-    <div className="h-screen w-screen bg-[#0c0c0c] text-green-400 flex flex-col font-mono text-sm overflow-hidden">
+    <div className="absolute inset-0 bg-[#0c0c0c] text-green-400 flex flex-col font-mono text-sm overflow-hidden">
       {/* Header bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-[#1a1a1a] border-b border-green-900/30 shrink-0">
         <div className="flex items-center gap-2">
@@ -29,7 +29,7 @@ export function AttachScreen({ containerId, containerName, shell }: AttachScreen
       </div>
 
       {/* Terminal Container */}
-      <div className="flex-1 overflow-hidden pb-8">
+      <div className="flex-1 min-h-0 overflow-hidden p-2 pb-8">
         <AttachTerminal containerId={containerId} shell={shell} />
       </div>
     </div>

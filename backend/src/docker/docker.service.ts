@@ -10,7 +10,7 @@ export class DockerService {
     this.docker = new Docker(); // Defaults to standard socket/pipe
   }
 
-  async getContainerLogsStream(containerId: string): Promise<AsyncIterable<string>> {
+  async getContainerLogsStream(containerId: string, signal?: AbortSignal): Promise<AsyncIterable<string>> {
     const container: Container = this.docker.getContainer(containerId);
     const stream = await container.logs({
       stdout: true,
@@ -19,6 +19,14 @@ export class DockerService {
       tail: 100,
       timestamps: true,
     });
+
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        if (stream && typeof (stream as any).destroy === 'function') {
+          (stream as any).destroy();
+        }
+      });
+    }
 
     return (async function* () {
       // Docker raw log stream: each message has an 8-byte header
@@ -93,9 +101,17 @@ export class DockerService {
     return this.docker.getContainer(id).restart();
   }
 
-  async getContainerStatsStream(id: string): Promise<AsyncIterable<any>> {
+  async getContainerStatsStream(id: string, signal?: AbortSignal): Promise<AsyncIterable<any>> {
     const container = this.docker.getContainer(id);
     const stream = await container.stats({ stream: true });
+    
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        if (stream && typeof (stream as any).destroy === 'function') {
+          (stream as any).destroy();
+        }
+      });
+    }
     
     return (async function* () {
       let dataBuffer = '';

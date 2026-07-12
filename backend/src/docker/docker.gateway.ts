@@ -16,6 +16,24 @@ export class DockerGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(private dockerService: DockerService) { }
 
   async handleConnection(client: WebSocket, request: http.IncomingMessage) {
+    let isAlive = true;
+    client.on('pong', () => {
+      isAlive = true;
+    });
+
+    const pingInterval = setInterval(() => {
+      if (isAlive === false) {
+        clearInterval(pingInterval);
+        return client.terminate();
+      }
+      isAlive = false;
+      client.ping();
+    }, 15000);
+
+    client.on('close', () => {
+      clearInterval(pingInterval);
+    });
+
     try {
       const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
       const containerId = url.searchParams.get('containerId');
