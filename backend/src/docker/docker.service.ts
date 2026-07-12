@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import Docker from 'dockerode';
 import type { Container } from 'dockerode';
+import { exec, spawn } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 @Injectable()
 export class DockerService {
@@ -388,5 +392,52 @@ export class DockerService {
       console.error('Error fetching docker data', error);
       throw error;
     }
+  }
+  async listVolumeFiles(volumeName: string, path: string = '') {
+    const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const fullPath = `/data/${safePath}`;
+    
+    const cmd = `docker run --rm -v ${volumeName}:/data:ro alpine sh -c "find '${fullPath}' -mindepth 1 -maxdepth 1 -exec stat -c '%F|%s|%Y|%n' {} + || true"`;
+    
+    try {
+      const { stdout } = await execAsync(cmd);
+      if (!stdout.trim()) return [];
+      
+      return stdout.trim().split('\n').map(line => {
+        const [type, size, mtime, name] = line.split('|');
+        if (!name) return null;
+        const basename = name.split('/').pop() || '';
+        return {
+          type: type === 'directory' ? 'directory' : 'file',
+          size: parseInt(size, 10) || 0,
+          mtime: parseInt(mtime, 10) * 1000 || 0,
+          name: basename,
+          path: safePath ? `${safePath}/${basename}` : basename,
+        };
+      }).filter(Boolean).sort((a: any, b: any) => {
+        if (a.type === b.type) return a.name.localeCompare(b.name);
+        return a.type === 'directory' ? -1 : 1;
+      });
+    } catch (err: any) {
+      throw new Error(`Failed to list directory: ${err.message}`);
+    }
+  }
+
+  async readVolumeFile(volumeName: string, path: string) {
+    const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const fullPath = `/data/${safePath}`;
+    
+    const cmd = `docker run --rm -v ${volumeName}:/data:ro alpine head -c 1M '${fullPath}'`;
+    
+    try {
+      const { stdout } = await execAsync(cmd, { maxBuffer: 2 * 1024 * 1024 });
+      return stdout;
+    } catch (err: any) {
+      throw new Error(`Failed to read file: ${err.message}`);
+    }
+  }
+
+  exportVolumeStream(volumeName: string) {
+    return spawn('docker', ['run', '--rm', '-v', `${volumeName}:/data:ro`, 'alpine', 'tar', '-czf', '-', '-C', '/data', '.']);
   }
 }

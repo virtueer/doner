@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Search, Terminal, ExternalLink, Info, Play } from 'lucide-react';
+import { X, Search, Terminal, ExternalLink, Info, Play, Folder, FileText, Download, ArrowLeft } from 'lucide-react';
 import { renderAnsiLine } from '@/lib/ansi';
 import { AttachTerminal } from './AttachTerminal';
 
@@ -77,6 +77,178 @@ function ContainerLogs({ containerId, containerName }: { containerId: string; co
   );
 }
 
+// --- Sub-component for Volume Files ---
+function VolumeBrowser({ volumeName }: { volumeName: string }) {
+  const [currentPath, setCurrentPath] = useState('/');
+  const [files, setFiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [viewFile, setViewFile] = useState<string | null>(null);
+  const [fileContent, setFileContent] = useState<string>('');
+  const [fileLoading, setFileLoading] = useState(false);
+
+  const fetchFiles = useCallback(async (path: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      setViewFile(null);
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${apiUrl}/api/volumes/${encodeURIComponent(volumeName)}/files?path=${encodeURIComponent(path)}`);
+      if (!res.ok) throw new Error('Failed to fetch files');
+      const data = await res.json();
+      setFiles(data);
+      setCurrentPath(path);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [volumeName]);
+
+  useEffect(() => {
+    fetchFiles('/');
+  }, [fetchFiles]);
+
+  const handleFileClick = async (file: any) => {
+    if (file.type === 'directory') {
+      fetchFiles(file.path);
+    } else {
+      // Read file
+      try {
+        setFileLoading(true);
+        setViewFile(file.name);
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const res = await fetch(`${apiUrl}/api/volumes/${encodeURIComponent(volumeName)}/files/read?path=${encodeURIComponent(file.path)}`);
+        if (!res.ok) throw new Error('Failed to read file');
+        const data = await res.json();
+        setFileContent(data.content);
+      } catch (err: any) {
+        setFileContent(`Error: ${err.message}`);
+      } finally {
+        setFileLoading(false);
+      }
+    }
+  };
+
+  const handleBack = () => {
+    if (currentPath === '/') return;
+    const parts = currentPath.replace(/\/$/, '').split('/');
+    parts.pop();
+    fetchFiles(parts.length > 0 ? parts.join('/') : '/');
+  };
+
+  const handleExport = () => {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    window.open(`${apiUrl}/api/volumes/${encodeURIComponent(volumeName)}/export`, '_blank');
+  };
+
+  const formatBytes = (bytes: number, decimals = 2) => {
+    if (!+bytes) return '0 B';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-[#1e1e1e] relative">
+      <div className="flex items-center justify-between px-4 py-3 bg-[#252525] border-b border-white/5">
+        <div className="flex items-center gap-2 overflow-hidden">
+          <button
+            onClick={handleBack}
+            disabled={currentPath === '/'}
+            className="p-1 rounded hover:bg-white/10 disabled:opacity-50 disabled:hover:bg-transparent text-white/80 shrink-0 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="flex items-center text-xs text-white/70 font-mono truncate">
+            {volumeName}:{currentPath.startsWith('/') ? currentPath : '/' + currentPath}
+          </div>
+        </div>
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-medium rounded-md transition-colors border border-blue-500/20 shrink-0"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Export
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-hidden relative">
+        {viewFile ? (
+          <div className="absolute inset-0 flex flex-col bg-[#1e1e1e] z-10">
+            <div className="px-4 py-2 bg-black/20 border-b border-white/5 flex items-center justify-between shrink-0">
+              <span className="text-sm font-mono text-white/90 truncate">{viewFile}</span>
+              <button onClick={() => setViewFile(null)} className="p-1 hover:bg-white/10 rounded text-white/70">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {fileLoading ? (
+                <div className="text-white/50 text-sm animate-pulse">Loading content...</div>
+              ) : (
+                <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap break-all">
+                  {fileContent || <span className="text-white/30 italic">Empty file</span>}
+                </pre>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="p-4 text-white/50 text-sm animate-pulse">Loading directory...</div>
+        ) : error ? (
+          <div className="p-4 text-red-400 text-sm">{error}</div>
+        ) : files.length === 0 ? (
+          <div className="p-4 text-white/40 text-sm italic">Empty directory</div>
+        ) : (
+          <div className="overflow-y-auto h-full p-2">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/5 text-xs text-white/40 font-medium">
+                  <th className="pb-2 font-normal pl-2">Name</th>
+                  <th className="pb-2 font-normal w-24">Size</th>
+                  <th className="pb-2 font-normal w-32">Modified</th>
+                </tr>
+              </thead>
+              <tbody>
+                {files.map((f, i) => (
+                  <tr
+                    key={i}
+                    onClick={() => handleFileClick(f)}
+                    className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors group"
+                  >
+                    <td className="py-2 pl-2">
+                      <div className="flex items-center gap-2">
+                        {f.type === 'directory' ? (
+                          <Folder className="h-4 w-4 text-amber-500 shrink-0" />
+                        ) : (
+                          <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+                        )}
+                        <span className="text-sm text-white/90 truncate group-hover:text-blue-400 transition-colors">
+                          {f.name}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-2 text-xs text-white/50 font-mono">
+                      {f.type === 'file' ? formatBytes(f.size) : '--'}
+                    </td>
+                    <td className="py-2 text-xs text-white/50">
+                      {new Date(f.mtime).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // --- Main Unified Sheet ---
 export function NodeDetailsSheet({
   nodeId,
@@ -92,7 +264,7 @@ export function NodeDetailsSheet({
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'inspect' | 'logs' | 'attach'>('inspect');
+  const [activeTab, setActiveTab] = useState<'inspect' | 'logs' | 'attach' | 'files'>('inspect');
   const [attachShell, setAttachShell] = useState('/bin/sh');
   const [isAttached, setIsAttached] = useState(false);
   const [stats, setStats] = useState<any>(null);
@@ -101,6 +273,7 @@ export function NodeDetailsSheet({
 
   const rawId = nodeId.replace(/^(cont-|net-|vol-)/, '');
   const isContainer = nodeType === 'containerNode';
+  const isVolume = nodeType === 'volumeNode';
 
   useEffect(() => {
     if (!isContainer) return;
@@ -325,6 +498,18 @@ export function NodeDetailsSheet({
                 </button>
               </>
             )}
+            {isVolume && (
+              <button
+                onClick={() => setActiveTab('files')}
+                className={`pb-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'files' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Folder className="h-4 w-4" />
+                  Files
+                </div>
+              </button>
+            )}
           </div>
         </div>
 
@@ -444,6 +629,10 @@ export function NodeDetailsSheet({
                 )}
               </div>
             </div>
+          )}
+
+          {activeTab === 'files' && isVolume && (
+            <VolumeBrowser volumeName={data?.Name || rawId} />
           )}
         </div>
       </div>
