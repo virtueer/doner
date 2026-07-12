@@ -81,6 +81,43 @@ export class DockerService {
     return stream;
   }
 
+  async startContainer(id: string) {
+    return this.docker.getContainer(id).start();
+  }
+
+  async stopContainer(id: string) {
+    return this.docker.getContainer(id).stop();
+  }
+
+  async restartContainer(id: string) {
+    return this.docker.getContainer(id).restart();
+  }
+
+  async getContainerStatsStream(id: string): Promise<AsyncIterable<any>> {
+    const container = this.docker.getContainer(id);
+    const stream = await container.stats({ stream: true });
+    
+    return (async function* () {
+      let dataBuffer = '';
+      for await (const chunk of stream as any) {
+        dataBuffer += chunk.toString('utf8');
+        let index = dataBuffer.indexOf('\n');
+        while (index !== -1) {
+          const line = dataBuffer.substring(0, index);
+          dataBuffer = dataBuffer.substring(index + 1);
+          if (line.trim()) {
+            try {
+              yield JSON.parse(line);
+            } catch (e) {
+              // ignore parse errors
+            }
+          }
+          index = dataBuffer.indexOf('\n');
+        }
+      }
+    })();
+  }
+
   async getNetworkGraph() {
     try {
       const networks = await this.docker.listNetworks();

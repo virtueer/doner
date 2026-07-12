@@ -99,9 +99,38 @@ export function NodeDetailsSheet({
   const [activeTab, setActiveTab] = useState<'inspect' | 'logs' | 'attach'>('inspect');
   const [attachShell, setAttachShell] = useState('/bin/sh');
   const [isAttached, setIsAttached] = useState(false);
+  const [stats, setStats] = useState<any>(null);
 
   const rawId = nodeId.replace(/^(cont-|net-|vol-)/, '');
   const isContainer = nodeType === 'containerNode';
+
+  useEffect(() => {
+    if (!isContainer) return;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const es = new EventSource(`${apiUrl}/api/container-stats/${rawId}`);
+
+    es.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        if (!parsed.error) {
+          setStats(parsed);
+        }
+      } catch (e) { }
+    };
+
+    return () => {
+      es.close();
+    };
+  }, [rawId, isContainer]);
+
+  const handleAction = async (action: 'start' | 'stop' | 'restart') => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      await fetch(`${apiUrl}/api/containers/${rawId}/${action}`, { method: 'POST' });
+    } catch (err) {
+      console.error(`Failed to ${action} container:`, err);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -136,20 +165,68 @@ export function NodeDetailsSheet({
     }
   };
 
+  const formatBytes = (bytes: number, decimals = 2) => {
+    if (!+bytes) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+  };
+
+  const renderStatsInfo = () => {
+    if (!stats) return null;
+    
+    let cpuPercent = 0.0;
+    const cpuDelta = stats.cpu_stats?.cpu_usage?.total_usage - (stats.precpu_stats?.cpu_usage?.total_usage || 0);
+    const systemDelta = stats.cpu_stats?.system_cpu_usage - (stats.precpu_stats?.system_cpu_usage || 0);
+    
+    if (systemDelta > 0.0 && cpuDelta > 0.0) {
+      const cpus = stats.cpu_stats?.online_cpus || stats.cpu_stats?.cpu_usage?.percpu_usage?.length || 1;
+      cpuPercent = (cpuDelta / systemDelta) * cpus * 100.0;
+    }
+
+    const memUsage = stats.memory_stats?.usage || 0;
+    const memLimit = stats.memory_stats?.limit || 0;
+    const memPercent = memLimit > 0 ? (memUsage / memLimit) * 100.0 : 0.0;
+
+    return (
+      <div className="flex items-center gap-4 text-xs mt-3 bg-black/20 p-2 rounded-md border border-white/5 w-fit">
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+          <span className="font-semibold text-foreground/80">CPU:</span>
+          <span className="font-mono text-blue-400">{cpuPercent.toFixed(2)}%</span>
+        </div>
+        <div className="w-px h-4 bg-white/10" />
+        <div 
+          className="flex items-center gap-1.5 cursor-help" 
+          title={`Usage: ${formatBytes(memUsage)} / Limit: ${formatBytes(memLimit)}`}
+        >
+          <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
+          <span className="font-semibold text-foreground/80">RAM:</span>
+          <span className="font-mono text-purple-400">{memPercent.toFixed(2)}%</span>
+        </div>
+      </div>
+    );
+  };
+
   // Helper to extract short info based on type
   const renderShortInfo = () => {
     if (!data) return null;
     if (isContainer) {
       return (
-        <div className="flex flex-wrap gap-4 text-xs mt-2 text-muted-foreground">
-          <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">ID:</span> {data.Id?.substring(0, 12)}</div>
-          <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">Image:</span> {data.Config?.Image}</div>
-          <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">State:</span> 
-            <span className={data.State?.Running ? 'text-green-500' : 'text-red-500'}>
-              {data.State?.Status}
-            </span>
+        <div className="flex flex-col">
+          <div className="flex flex-wrap gap-4 text-xs mt-2 text-muted-foreground">
+            <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">ID:</span> {data.Id?.substring(0, 12)}</div>
+            <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">Image:</span> {data.Config?.Image}</div>
+            <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">State:</span> 
+              <span className={data.State?.Running ? 'text-green-500' : 'text-red-500'}>
+                {data.State?.Status}
+              </span>
+            </div>
+            <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">Created:</span> {new Date(data.Created).toLocaleString()}</div>
           </div>
-          <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">Created:</span> {new Date(data.Created).toLocaleString()}</div>
+          {renderStatsInfo()}
         </div>
       );
     } else if (nodeType === 'networkNode') {
@@ -179,7 +256,7 @@ export function NodeDetailsSheet({
         className="fixed inset-0 bg-background/50 backdrop-blur-sm z-40 transition-opacity"
         onClick={onClose}
       />
-      <div className="fixed inset-y-0 right-0 z-50 w-3/4 max-w-5xl bg-card border-l border-border shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out">
+      <div className="fixed inset-y-0 right-0 z-50 w-3/4 max-w-5xl bg-card border-l border-border shadow-2xl flex flex-col animate-slide-in-right">
         {/* Header Section */}
         <div className="px-6 py-4 border-b border-border bg-card/95 backdrop-blur z-10 shrink-0">
           <div className="flex items-start justify-between">
@@ -197,12 +274,21 @@ export function NodeDetailsSheet({
                 renderShortInfo()
               )}
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-2 mt-4 sm:mt-0">
+              {isContainer && (
+                <div className="flex items-center gap-2 mr-4 border-r border-border/20 pr-4">
+                  <button onClick={() => handleAction('start')} className="px-3 py-1.5 text-xs font-medium bg-green-500/10 text-green-500 hover:bg-green-500/20 border border-green-500/20 rounded-md transition-colors shadow-sm">Start</button>
+                  <button onClick={() => handleAction('stop')} className="px-3 py-1.5 text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 rounded-md transition-colors shadow-sm">Stop</button>
+                  <button onClick={() => handleAction('restart')} className="px-3 py-1.5 text-xs font-medium bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border border-blue-500/20 rounded-md transition-colors shadow-sm">Restart</button>
+                </div>
+              )}
+              <button
+                onClick={onClose}
+                className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           {/* Tabs */}

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Res } from '@nestjs/common';
+import { Controller, Get, Post, Param, Res } from '@nestjs/common';
 import { DockerService } from './docker/docker.service';
 
 @Controller('api')
@@ -22,6 +22,42 @@ export class AppController {
       res.write(`data: ${JSON.stringify(line)}\n\n`);
     }
     res.end();
+  }
+
+  @Get('container-stats/:id')
+  async streamContainerStats(@Param('id') id: string, @Res() res: any) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    try {
+      const stats = await this.dockerService.getContainerStatsStream(id);
+      for await (const data of stats) {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      }
+    } catch (e: any) {
+      res.write(`data: {"error": "${e.message}"}\n\n`);
+    }
+    res.end();
+  }
+
+  @Post('containers/:id/start')
+  async startContainer(@Param('id') id: string) {
+    await this.dockerService.startContainer(id);
+    return { success: true };
+  }
+
+  @Post('containers/:id/stop')
+  async stopContainer(@Param('id') id: string) {
+    await this.dockerService.stopContainer(id);
+    return { success: true };
+  }
+
+  @Post('containers/:id/restart')
+  async restartContainer(@Param('id') id: string) {
+    await this.dockerService.restartContainer(id);
+    return { success: true };
   }
 
   @Get('inspect/:type/:id')
