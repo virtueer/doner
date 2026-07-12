@@ -78,28 +78,22 @@ export class AppController {
   async listVolumeFiles(@Param('name') name: string, @Query('path') path: string) {
     return this.dockerService.listVolumeFiles(name, path || '');
   }
-
-  @Get('volumes/:name/files/read')
+  @Get('volumes/:name/files/read')
   async readVolumeFile(@Param('name') name: string, @Query('path') path: string) {
     const content = await this.dockerService.readVolumeFile(name, path);
     return { content };
   }
 
   @Get('volumes/:name/export')
-  exportVolume(@Param('name') name: string, @Res() res: any, @Req() req: any) {
+  async exportVolume(@Param('name') name: string, @Res() res: any) {
     res.setHeader('Content-Type', 'application/gzip');
     res.setHeader('Content-Disposition', `attachment; filename="${name}.tar.gz"`);
     
-    const child = this.dockerService.exportVolumeStream(name);
-    child.stdout.pipe(res);
-    
-    child.on('error', (err) => {
+    try {
+      await this.dockerService.exportVolumeStream(name, res);
+    } catch (err) {
       console.error('Export error:', err);
       if (!res.headersSent) res.status(500).send('Export failed');
-    });
-    
-    req.on('close', () => {
-      if (!child.killed) child.kill();
-    });
+    }
   }
 }

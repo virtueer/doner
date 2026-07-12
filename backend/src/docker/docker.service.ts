@@ -1,10 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import Docker from 'dockerode';
 import type { Container } from 'dockerode';
-import { exec, spawn } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import * as stream from 'stream';
+import * as zlib from 'zlib';
 
 @Injectable()
 export class DockerService {
@@ -393,14 +391,37 @@ export class DockerService {
       throw error;
     }
   }
+  private async runAlpineCommand(volumeName: string, cmdArray: string[]): Promise<string> {
+    let output = '';
+    const outStream = new stream.Writable({
+      write(chunk, encoding, callback) {
+        output += chunk.toString();
+        callback();
+      }
+    });
+
+    try {
+      await this.docker.run('alpine', cmdArray, outStream, {
+        Tty: true,
+        HostConfig: {
+          Binds: [`${volumeName}:/data:ro`],
+          AutoRemove: true
+        }
+      });
+      return output.replace(/\r/g, '');
+    } catch (err: any) {
+      throw new Error(`Docker run failed: ${err.message}`);
+    }
+  }
+
   async listVolumeFiles(volumeName: string, path: string = '') {
     const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
     const fullPath = `/data/${safePath}`;
     
-    const cmd = `docker run --rm -v ${volumeName}:/data:ro alpine sh -c "find '${fullPath}' -mindepth 1 -maxdepth 1 -exec stat -c '%F|%s|%Y|%n' {} + || true"`;
+    const cmdArray = ['sh', '-c', `find '${fullPath}' -mindepth 1 -maxdepth 1 -exec stat -c '%F|%s|%Y|%n' {} + || true`];
     
     try {
-      const { stdout } = await execAsync(cmd);
+      const stdout = await this.runAlpineCommand(volumeName, cmdArray);
       if (!stdout.trim()) return [];
       
       return stdout.trim().split('\n').map(line => {
@@ -426,18 +447,39 @@ export class DockerService {
   async readVolumeFile(volumeName: string, path: string) {
     const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
     const fullPath = `/data/${safePath}`;
-    
-    const cmd = `docker run --rm -v ${volumeName}:/data:ro alpine head -c 1M '${fullPath}'`;
+    const cmdArray = ['head', '-c', '1M', fullPath];
     
     try {
-      const { stdout } = await execAsync(cmd, { maxBuffer: 2 * 1024 * 1024 });
+      const stdout = await this.runAlpineCommand(volumeName, cmdArray);
       return stdout;
     } catch (err: any) {
       throw new Error(`Failed to read file: ${err.message}`);
     }
   }
 
-  exportVolumeStream(volumeName: string) {
-    return spawn('docker', ['run', '--rm', '-v', `${volumeName}:/data:ro`, 'alpine', 'tar', '-czf', '-', '-C', '/data', '.']);
+  async exportVolumeStream(volumeName: string, res: any) {
+    const container = await this.docker.createContainer({
+      Image: 'alpine',
+      Cmd: ['sleep', '3600'],
+      HostConfig: {
+        Binds: [`${volumeName}:/data:ro`],
+        AutoRemove: true
+      }
+    });
+    
+    await container.start();
+    
+    const archiveStream = await container.getArchive({ path: '/data' });
+    const gzip = zlib.createGzip();
+    
+    archiveStream.pipe(gzip).pipe(res);
+    
+    const cleanup = () => {
+      container.stop().catch(() => {});
+    };
+    
+    archiveStream.on('end', cleanup);
+    archiveStream.on('error', cleanup);
+    res.on('close', cleanup);
   }
 }
