@@ -29,7 +29,7 @@ export function AttachScreen({ containerId, containerName, shell }: AttachScreen
       </div>
 
       {/* Terminal Container */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden pb-8">
         <AttachTerminal containerId={containerId} shell={shell} />
       </div>
     </div>

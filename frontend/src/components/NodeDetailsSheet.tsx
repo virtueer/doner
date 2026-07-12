@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Search, Terminal, ExternalLink, Info, Play } from 'lucide-react';
 import { renderAnsiLine } from '@/lib/ansi';
 import { AttachTerminal } from './AttachTerminal';
@@ -73,10 +73,6 @@ function ContainerLogs({ containerId, containerName }: { containerId: string; co
         ))}
         <div ref={logsEndRef} />
       </div>
-      <div className="p-2 border-t border-white/5 text-[10px] text-green-500/50 flex items-center gap-2">
-        <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-        Streaming live
-      </div>
     </div>
   );
 }
@@ -100,6 +96,8 @@ export function NodeDetailsSheet({
   const [attachShell, setAttachShell] = useState('/bin/sh');
   const [isAttached, setIsAttached] = useState(false);
   const [stats, setStats] = useState<any>(null);
+
+  const handleDisconnect = useCallback(() => setIsAttached(false), []);
 
   const rawId = nodeId.replace(/^(cont-|net-|vol-)/, '');
   const isContainer = nodeType === 'containerNode';
@@ -140,11 +138,11 @@ export function NodeDetailsSheet({
         const res = await fetch(`${apiUrl}/api/inspect/${nodeType}/${rawId}`);
         if (!res.ok) throw new Error('Failed to fetch inspect data');
         const json = await res.json();
-        
+
         if (json.error) {
           throw new Error(json.error);
         }
-        
+
         setData(json);
       } catch (err: any) {
         setError(err.message);
@@ -176,11 +174,11 @@ export function NodeDetailsSheet({
 
   const renderStatsInfo = () => {
     if (!stats) return null;
-    
+
     let cpuPercent = 0.0;
     const cpuDelta = stats.cpu_stats?.cpu_usage?.total_usage - (stats.precpu_stats?.cpu_usage?.total_usage || 0);
     const systemDelta = stats.cpu_stats?.system_cpu_usage - (stats.precpu_stats?.system_cpu_usage || 0);
-    
+
     if (systemDelta > 0.0 && cpuDelta > 0.0) {
       const cpus = stats.cpu_stats?.online_cpus || stats.cpu_stats?.cpu_usage?.percpu_usage?.length || 1;
       cpuPercent = (cpuDelta / systemDelta) * cpus * 100.0;
@@ -198,8 +196,8 @@ export function NodeDetailsSheet({
           <span className="font-mono text-blue-400">{cpuPercent.toFixed(2)}%</span>
         </div>
         <div className="w-px h-4 bg-white/10" />
-        <div 
-          className="flex items-center gap-1.5 cursor-help" 
+        <div
+          className="flex items-center gap-1.5 cursor-help"
           title={`Usage: ${formatBytes(memUsage)} / Limit: ${formatBytes(memLimit)}`}
         >
           <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
@@ -219,7 +217,7 @@ export function NodeDetailsSheet({
           <div className="flex flex-wrap gap-4 text-xs mt-2 text-muted-foreground">
             <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">ID:</span> {data.Id?.substring(0, 12)}</div>
             <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">Image:</span> {data.Config?.Image}</div>
-            <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">State:</span> 
+            <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">State:</span>
               <span className={data.State?.Running ? 'text-green-500' : 'text-red-500'}>
                 {data.State?.Status}
               </span>
@@ -295,9 +293,8 @@ export function NodeDetailsSheet({
           <div className="flex gap-4 mt-4 border-b border-white/5">
             <button
               onClick={() => setActiveTab('inspect')}
-              className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'inspect' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+              className={`pb-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'inspect' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
             >
               <div className="flex items-center gap-1.5">
                 <Search className="h-4 w-4" />
@@ -308,9 +305,8 @@ export function NodeDetailsSheet({
               <>
                 <button
                   onClick={() => setActiveTab('logs')}
-                  className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === 'logs' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
-                  }`}
+                  className={`pb-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'logs' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
                 >
                   <div className="flex items-center gap-1.5">
                     <Terminal className="h-4 w-4" />
@@ -319,9 +315,8 @@ export function NodeDetailsSheet({
                 </button>
                 <button
                   onClick={() => setActiveTab('attach')}
-                  className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === 'attach' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
-                  }`}
+                  className={`pb-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'attach' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
                 >
                   <div className="flex items-center gap-1.5">
                     <Play className="h-4 w-4" />
@@ -354,7 +349,7 @@ export function NodeDetailsSheet({
                       if (key === 'Mounts') badgeColor = "bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20 hover:text-amber-200";
                       else if (key === 'Config') badgeColor = "bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20 hover:text-blue-200";
                       else if (key === 'NetworkSettings') badgeColor = "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-200";
-                      
+
                       return (
                         <button
                           key={key}
@@ -437,10 +432,10 @@ export function NodeDetailsSheet({
               </div>
               <div className="flex-1 overflow-hidden">
                 {isAttached ? (
-                  <AttachTerminal 
-                    containerId={rawId} 
-                    shell={attachShell} 
-                    onDisconnect={() => setIsAttached(false)} 
+                  <AttachTerminal
+                    containerId={rawId}
+                    shell={attachShell}
+                    onDisconnect={handleDisconnect}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
