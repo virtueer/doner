@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -185,8 +185,70 @@ function Flow() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const { fitView } = useReactFlow();
+  const { fitView, setCenter, getNode } = useReactFlow();
   const rawDataRef = useRef<{ nodes: any[]; edges: any[] } | null>(null);
+
+  const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
+  const hoverTimeoutRef = useRef<any | null>(null);
+
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
+
+  const matchedNodes = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    return nodes.filter(n => (n.data?.label as string)?.toLowerCase().includes(q));
+  }, [nodes, searchQuery]);
+
+  useEffect(() => {
+    setSearchSelectedIndex(0);
+  }, [matchedNodes]);
+
+  const handleSearchSelect = (nodeId: string) => {
+    const node = getNode(nodeId);
+    if (node && node.position) {
+      setCenter(node.position.x + 150, node.position.y + 100, { zoom: 1.2, duration: 800 });
+    }
+    setIsSearchFocused(false);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (!isSearchFocused || matchedNodes.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSearchSelectedIndex(prev => (prev + 1) % matchedNodes.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSearchSelectedIndex(prev => (prev - 1 + matchedNodes.length) % matchedNodes.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearchSelect(matchedNodes[searchSelectedIndex].id);
+    } else if (e.key === 'Escape') {
+      setIsSearchFocused(false);
+    }
+  };
+
+  const getConnectedNodes = useCallback((nodeId: string, currentEdges: Edge[]) => {
+    const connected = new Set<string>();
+    connected.add(nodeId);
+    currentEdges.forEach(e => {
+      if (e.source === nodeId) connected.add(e.target);
+      if (e.target === nodeId) connected.add(e.source);
+    });
+    return connected;
+  }, []);
+
+  const onNodeMouseEnter = useCallback((_event: React.MouseEvent, node: Node) => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHighlightedNodeId(node.id);
+    }, 1000);
+  }, []);
+
+  const onNodeMouseLeave = useCallback(() => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    setHighlightedNodeId(null);
+  }, []);
 
   const fetchGraphData = async () => {
     try {
@@ -272,20 +334,47 @@ function Flow() {
     setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50);
   }, [edges, setNodes, fitView]);
 
-  // Apply search highlighting
+  // Apply search and hover highlighting
+  const connectedNodes = highlightedNodeId ? getConnectedNodes(highlightedNodeId, edges) : null;
+
   const filteredNodes = nodes.map((node) => {
-    if (!searchQuery.trim()) {
-      return { ...node, style: { ...node.style, opacity: 1 } };
+    let opacity = 1;
+
+    if (searchQuery.trim()) {
+      const label = (node.data?.label as string)?.toLowerCase() || '';
+      if (!label.includes(searchQuery.toLowerCase())) {
+        opacity = 0.2;
+      }
     }
-    const label = (node.data?.label as string)?.toLowerCase() || '';
-    const match = label.includes(searchQuery.toLowerCase());
+
+    if (highlightedNodeId && connectedNodes) {
+      if (!connectedNodes.has(node.id)) {
+        opacity = Math.min(opacity, 0.2);
+      } else {
+        opacity = 1;
+      }
+    }
+
     return {
       ...node,
       style: {
         ...node.style,
-        opacity: match ? 1 : 0.2,
+        opacity,
         transition: 'opacity 0.2s',
       },
+    };
+  });
+
+  const filteredEdges = edges.map((edge) => {
+    let opacity = 1;
+    if (highlightedNodeId) {
+      if (edge.source !== highlightedNodeId && edge.target !== highlightedNodeId) {
+        opacity = 0.2;
+      }
+    }
+    return {
+      ...edge,
+      style: { ...edge.style, opacity, transition: 'opacity 0.2s' },
     };
   });
 
@@ -293,11 +382,13 @@ function Flow() {
     <>
       <ReactFlow
         nodes={filteredNodes}
-        edges={edges}
+        edges={filteredEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={handleNodeClick}
+        onNodeMouseEnter={onNodeMouseEnter}
+        onNodeMouseLeave={onNodeMouseLeave}
         nodeTypes={nodeTypes}
         fitView
         className="bg-background"
@@ -321,8 +412,25 @@ function Flow() {
               placeholder="Search nodes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+              onKeyDown={handleSearchKeyDown}
               className="pl-9 pr-4 py-2 bg-card/90 backdrop-blur-sm border border-border/50 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary shadow-sm w-64 transition-all"
             />
+            {isSearchFocused && matchedNodes.length > 0 && (
+              <div className="absolute top-full left-0 w-full mt-1 z-50 bg-card/95 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg overflow-hidden max-h-64 overflow-y-auto">
+                {matchedNodes.map((n, idx) => (
+                  <div
+                    key={n.id}
+                    onClick={() => handleSearchSelect(n.id)}
+                    className={`px-3 py-2 text-sm cursor-pointer transition-colors ${idx === searchSelectedIndex ? 'bg-primary/20 text-primary' : 'hover:bg-white/5 text-foreground'
+                      }`}
+                  >
+                    {n.data?.label as string}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </Panel>
 

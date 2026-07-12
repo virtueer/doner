@@ -349,15 +349,22 @@ export function NodeDetailsSheet({
                 <>
                   {/* Sticky Badges Header */}
                   <div className="sticky top-0 z-20 bg-[#1e1e1e]/95 backdrop-blur-md border-b border-white/10 p-3 shrink-0 flex flex-wrap gap-2 max-h-32 overflow-y-auto shadow-md">
-                    {rootKeys.map((key) => (
-                      <button
-                        key={key}
-                        onClick={() => handleScrollTo(key)}
-                        className="px-2.5 py-1 text-xs font-mono rounded-md bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-                      >
-                        {key}
-                      </button>
-                    ))}
+                    {rootKeys.map((key) => {
+                      let badgeColor = "bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-white/10";
+                      if (key === 'Mounts') badgeColor = "bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20 hover:text-amber-200";
+                      else if (key === 'Config') badgeColor = "bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20 hover:text-blue-200";
+                      else if (key === 'NetworkSettings') badgeColor = "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-200";
+                      
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => handleScrollTo(key)}
+                          className={`px-2.5 py-1 text-xs font-mono rounded-md border transition-colors ${badgeColor}`}
+                        >
+                          {key}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   {/* JSON Content */}
