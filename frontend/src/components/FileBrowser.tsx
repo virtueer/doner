@@ -321,7 +321,7 @@ export function FileBrowser({
           <div className="p-4 text-white/40 text-sm italic">Empty directory</div>
         ) : (
           <div className="overflow-y-auto h-full p-2">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse table-fixed">
               <thead>
                 <tr className="border-b border-white/5 text-xs text-white/40 font-medium">
                   <th className="pb-2 font-normal pl-2">Name</th>
@@ -340,10 +340,10 @@ export function FileBrowser({
                         e.stopPropagation();
                         handleContextMenu(e, f);
                       }}
-                      className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors group"
+                      className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors group h-10"
                     >
-                      <td className="py-2 pl-2">
-                        <div className="flex items-center gap-2">
+                      <td className="py-2 pl-2 overflow-hidden">
+                        <div className="flex items-center gap-2 min-w-0">
                           {isMount ? (
                             <Database className="h-4 w-4 text-purple-500 shrink-0" />
                           ) : f.type === 'directory' ? (
@@ -353,16 +353,16 @@ export function FileBrowser({
                           ) : (
                             <FileText className="h-4 w-4 text-slate-400 shrink-0" />
                           )}
-                          <span className="text-sm text-white/90 truncate group-hover:text-blue-400 transition-colors">
+                          <span className="text-sm text-white/90 truncate group-hover:text-blue-400 transition-colors" title={f.name}>
                             {f.name}
                           </span>
                           {isMount && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 ml-1">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 ml-1 shrink-0">
                               Mount
                             </span>
                           )}
                           {f.type === 'symlink' && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 ml-1">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 ml-1 shrink-0">
                               Shortcut
                             </span>
                           )}
