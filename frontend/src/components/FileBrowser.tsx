@@ -33,6 +33,7 @@ export function FileBrowser({
 
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; file: any } | null>(null);
+  const [copiedFile, setCopiedFile] = useState<{ path: string, name: string, type: 'file' | 'directory' } | null>(null);
 
   type DialogState = {
     isOpen: boolean;
@@ -191,12 +192,14 @@ export function FileBrowser({
   };
 
   const handleCopy = (file: any) => {
-    globalClipboard = {
+    const clipboardData = {
       apiPrefix,
       path: file.path,
       name: file.name,
       type: file.type
     };
+    globalClipboard = clipboardData;
+    setCopiedFile(clipboardData);
   };
 
   const getUniqueName = (name: string, fileList: any[]) => {
@@ -564,6 +567,29 @@ export function FileBrowser({
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {/* Copied File Indicator */}
+      {copiedFile && (
+        <div className="absolute bottom-4 right-4 z-40 bg-blue-500/10 border border-blue-500/20 backdrop-blur-md px-3 py-2 rounded-lg shadow-lg flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 max-w-xs">
+          <div className="bg-blue-500/20 p-1.5 rounded-md shrink-0">
+            <Copy className="h-4 w-4 text-blue-400" />
+          </div>
+          <div className="flex flex-col overflow-hidden min-w-0">
+            <span className="text-xs font-medium text-white/90 truncate" title={copiedFile.name}>
+              Copied {copiedFile.type === 'directory' ? 'folder' : 'file'}: {copiedFile.name}
+            </span>
+            <span className="text-[10px] text-white/50 truncate" title={copiedFile.path}>
+              {copiedFile.path}
+            </span>
+          </div>
+          <button 
+            onClick={() => setCopiedFile(null)} 
+            className="p-1 hover:bg-white/10 rounded-md transition-colors shrink-0 text-white/40 hover:text-white/80"
+          >
+            <X className="h-3 w-3" />
+          </button>
         </div>
       )}
       {/* Dialog Modal */}
