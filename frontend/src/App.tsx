@@ -20,7 +20,8 @@ import { NodeDetailsSheet } from './components/NodeDetailsSheet';
 import { LogsTerminal } from './components/LogsTerminal';
 import { AttachScreen } from './components/AttachScreen';
 import { FileBrowser } from './components/FileBrowser';
-import { RefreshCw, Sparkles, Search, Box, Network, Database } from 'lucide-react';
+import { RefreshCw, Sparkles, Search, Box, Network, Database, CheckCircle2, AlertCircle, Info as InfoIcon } from 'lucide-react';
+import { toast, subscribeToToasts, type Toast } from './lib/toast';
 
 const nodeTypes = {
   networkNode: NetworkNode,
@@ -290,7 +291,33 @@ function Flow() {
   useEffect(() => {
     fetchGraphData();
     const interval = setInterval(fetchGraphData, 10000);
-    return () => clearInterval(interval);
+
+    // Global Docker events stream
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const es = new EventSource(`${apiUrl}/api/events`);
+    es.onmessage = (event) => {
+      try {
+        const e = JSON.parse(event.data);
+        if (e.Action === 'start' && e.Type === 'container') {
+          toast(`Container ${e.Actor?.Attributes?.name} started`, 'success');
+          fetchGraphData();
+        } else if (e.Action === 'die' && e.Type === 'container') {
+          toast(`Container ${e.Actor?.Attributes?.name} stopped`, 'error');
+          fetchGraphData();
+        } else if (e.Action === 'create' && e.Type === 'container') {
+          toast(`Container ${e.Actor?.Attributes?.name} created`, 'info');
+          fetchGraphData();
+        } else if (e.Action === 'destroy' && e.Type === 'container') {
+          toast(`Container ${e.Actor?.Attributes?.name} deleted`, 'info');
+          fetchGraphData();
+        }
+      } catch (err) { }
+    };
+
+    return () => {
+      clearInterval(interval);
+      es.close();
+    };
   }, []);
 
   // Persist node positions to localStorage (debounced)
@@ -540,6 +567,30 @@ function FileBrowserScreen({ apiPrefix, nodeName, type }: { apiPrefix: string, n
   );
 }
 
+function Toaster() {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  useEffect(() => subscribeToToasts(setToasts), []);
+
+  return (
+    <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-2xl text-sm min-w-[280px] animate-in slide-in-from-right-8 fade-in duration-300 border ${t.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-500 backdrop-blur-md' :
+              t.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-500 backdrop-blur-md' :
+                'bg-[#2a2a2a]/90 border-white/10 text-white/90 backdrop-blur-md'
+            }`}
+        >
+          {t.type === 'error' ? <AlertCircle className="h-5 w-5 shrink-0" /> :
+            t.type === 'success' ? <CheckCircle2 className="h-5 w-5 shrink-0" /> :
+              <InfoIcon className="h-5 w-5 shrink-0 text-blue-400" />}
+          <span className="font-medium">{t.message}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function App() {
   // Check for terminal mode via URL params
   const params = new URLSearchParams(window.location.search);
@@ -571,6 +622,7 @@ function App() {
       <ReactFlowProvider>
         <Flow />
       </ReactFlowProvider>
+      <Toaster />
     </div>
   );
 }

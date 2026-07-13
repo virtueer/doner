@@ -48,6 +48,27 @@ export class AppController {
     res.end();
   }
 
+  @Get('events')
+  async streamEvents(@Res() res: any, @Req() req: any) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const ac = new AbortController();
+    req.on('close', () => ac.abort());
+
+    try {
+      const events = await this.dockerService.getEventsStream(ac.signal);
+      for await (const event of events) {
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      }
+    } catch (e: any) {
+      res.write(`data: {"error": "${e.message}"}\n\n`);
+    }
+    res.end();
+  }
+
   @Post('containers/:id/start')
   async startContainer(@Param('id') id: string) {
     await this.dockerService.startContainer(id);
@@ -78,7 +99,8 @@ export class AppController {
   async listVolumeFiles(@Param('name') name: string, @Query('path') path: string) {
     return this.dockerService.listVolumeFiles(name, path || '');
   }
-  @Get('volumes/:name/files/read')
+
+  @Get('volumes/:name/files/read')
   async readVolumeFile(@Param('name') name: string, @Query('path') path: string) {
     const content = await this.dockerService.readVolumeFile(name, path);
     return { content };

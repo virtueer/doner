@@ -136,6 +136,35 @@ export class DockerService {
     })();
   }
 
+  async getEventsStream(signal?: AbortSignal): Promise<AsyncIterable<any>> {
+    const stream = await this.docker.getEvents();
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        if (stream && typeof (stream as any).destroy === 'function') {
+          (stream as any).destroy();
+        }
+      });
+    }
+
+    return (async function* () {
+      let dataBuffer = '';
+      for await (const chunk of stream as any) {
+        dataBuffer += chunk.toString('utf8');
+        let index = dataBuffer.indexOf('\n');
+        while (index !== -1) {
+          const line = dataBuffer.substring(0, index);
+          dataBuffer = dataBuffer.substring(index + 1);
+          if (line.trim()) {
+            try {
+              yield JSON.parse(line);
+            } catch (e) {}
+          }
+          index = dataBuffer.indexOf('\n');
+        }
+      }
+    })();
+  }
+
   async getNetworkGraph() {
     try {
       const networks = await this.docker.listNetworks();

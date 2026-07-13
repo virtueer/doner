@@ -194,12 +194,17 @@ export function NodeDetailsSheet({
     };
   }, [rawId, isContainer]);
 
+  const [actionLoading, setActionLoading] = useState<'start' | 'stop' | 'restart' | null>(null);
+
   const handleAction = async (action: 'start' | 'stop' | 'restart') => {
     try {
+      setActionLoading(action);
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       await fetch(`${apiUrl}/api/containers/${rawId}/${action}`, { method: 'POST' });
     } catch (err) {
       console.error(`Failed to ${action} container:`, err);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -358,19 +363,25 @@ export function NodeDetailsSheet({
                 <div className="flex items-center gap-2 mr-4 border-r border-border/20 pr-4">
                   <button 
                     onClick={() => handleAction('start')} 
-                    disabled={data?.State?.Running}
-                    className="px-3 py-1.5 text-xs font-medium bg-green-500/10 text-green-500 hover:bg-green-500/20 border border-green-500/20 rounded-md transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={data?.State?.Running || actionLoading !== null}
+                    className="px-3 py-1.5 text-xs font-medium bg-green-500/10 text-green-500 hover:bg-green-500/20 border border-green-500/20 rounded-md transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed w-16"
                   >
-                    Start
+                    {actionLoading === 'start' ? '...' : 'Start'}
                   </button>
                   <button 
                     onClick={() => handleAction('stop')} 
-                    disabled={!data?.State?.Running}
-                    className="px-3 py-1.5 text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 rounded-md transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!data?.State?.Running || actionLoading !== null}
+                    className="px-3 py-1.5 text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 rounded-md transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed w-16"
                   >
-                    Stop
+                    {actionLoading === 'stop' ? '...' : 'Stop'}
                   </button>
-                  <button onClick={() => handleAction('restart')} className="px-3 py-1.5 text-xs font-medium bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border border-blue-500/20 rounded-md transition-colors shadow-sm">Restart</button>
+                  <button 
+                    onClick={() => handleAction('restart')} 
+                    disabled={actionLoading !== null}
+                    className="px-3 py-1.5 text-xs font-medium bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border border-blue-500/20 rounded-md transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed w-20"
+                  >
+                    {actionLoading === 'restart' ? '...' : 'Restart'}
+                  </button>
                 </div>
               )}
               <button
@@ -471,7 +482,7 @@ export function NodeDetailsSheet({
                   <div className="flex-1 overflow-y-auto p-6 scroll-smooth relative">
                     <button
                       onClick={handleCopyJson}
-                      className="absolute top-8 right-8 p-2 rounded-md bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
+                      className="absolute top-8 right-8 z-10 p-2 rounded-md bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
                       title="Copy JSON"
                     >
                       {copiedJson ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
