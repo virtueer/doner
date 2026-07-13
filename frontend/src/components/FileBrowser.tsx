@@ -34,6 +34,37 @@ export function FileBrowser({
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; file: any } | null>(null);
 
+  type DialogState = {
+    isOpen: boolean;
+    type: 'alert' | 'confirm' | 'prompt';
+    title: string;
+    message: string;
+    defaultValue?: string;
+    onConfirm?: (value?: string) => void;
+    onCancel?: () => void;
+  };
+  const [dialog, setDialog] = useState<DialogState | null>(null);
+
+  const showAlert = (title: string, message: string) => {
+    return new Promise<void>((resolve) => {
+      setDialog({ isOpen: true, type: 'alert', title, message, onConfirm: () => { setDialog(null); resolve(); }, onCancel: () => { setDialog(null); resolve(); } });
+    });
+  };
+
+  const showConfirm = (title: string, message: string) => {
+    return new Promise<boolean>((resolve) => {
+      setDialog({ isOpen: true, type: 'confirm', title, message, onConfirm: () => { setDialog(null); resolve(true); }, onCancel: () => { setDialog(null); resolve(false); } });
+    });
+  };
+
+  const showPrompt = (title: string, message: string, defaultValue = '') => {
+    return new Promise<string | null>((resolve) => {
+      setDialog({ isOpen: true, type: 'prompt', title, message, defaultValue, onConfirm: (val) => { setDialog(null); resolve(val || null); }, onCancel: () => { setDialog(null); resolve(null); } });
+    });
+  };
+
+  const [pathInput, setPathInput] = useState('');
+
   const fetchFiles = useCallback(async (path: string) => {
     try {
       setLoading(true);
@@ -45,6 +76,7 @@ export function FileBrowser({
       const data = await res.json();
       setFiles(data);
       setCurrentPath(path);
+      setPathInput(path.startsWith('/') ? path : '/' + path);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -103,7 +135,7 @@ export function FileBrowser({
       setFileContent(editContent);
       setIsEditing(false);
     } catch (err: any) {
-      alert(`Save failed: ${err.message}`);
+      await showAlert('Error', `Save failed: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -117,9 +149,9 @@ export function FileBrowser({
     }
   }, [hasUnsavedChanges, onUnsavedChangesChange]);
 
-  const handleCloseFileView = () => {
+  const handleCloseFileView = async () => {
     if (hasUnsavedChanges) {
-      if (!window.confirm("Are you sure you want to discard unsaved changes?")) return;
+      if (!(await showConfirm('Unsaved Changes', 'Are you sure you want to discard unsaved changes?'))) return;
     }
     setViewFile(null);
     setViewFilePath(null);
@@ -183,7 +215,7 @@ export function FileBrowser({
   const handlePaste = async () => {
     if (!globalClipboard) return;
     if (globalClipboard.apiPrefix !== apiPrefix) {
-      alert('Cross-node copy/paste is not supported yet.');
+      await showAlert('Unsupported', 'Cross-node copy/paste is not supported yet.');
       return;
     }
 
@@ -208,12 +240,12 @@ export function FileBrowser({
       }
       fetchFiles(currentPath);
     } catch (err: any) {
-      alert(`Paste failed: ${err.message}`);
+      await showAlert('Error', `Paste failed: ${err.message}`);
     }
   };
 
   const handleMkdir = async () => {
-    const name = window.prompt("New folder name:");
+    const name = await showPrompt("New Folder", "New folder name:");
     if (!name) return;
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -225,12 +257,12 @@ export function FileBrowser({
       if (!res.ok) throw new Error('Failed to create directory');
       fetchFiles(currentPath);
     } catch (err: any) {
-      alert(`Create folder failed: ${err.message}`);
+      await showAlert('Error', `Create folder failed: ${err.message}`);
     }
   };
 
   const handleNewFile = async () => {
-    const name = window.prompt("New file name:");
+    const name = await showPrompt("New File", "New file name:");
     if (!name) return;
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -244,12 +276,12 @@ export function FileBrowser({
       if (!res.ok) throw new Error('Failed to create file');
       fetchFiles(currentPath);
     } catch (err: any) {
-      alert(`Create file failed: ${err.message}`);
+      await showAlert('Error', `Create file failed: ${err.message}`);
     }
   };
 
   const handleRename = async (file: any) => {
-    const newName = window.prompt("Enter new name:", file.name);
+    const newName = await showPrompt("Rename", "Enter new name:", file.name);
     if (!newName || newName === file.name) return;
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -263,12 +295,12 @@ export function FileBrowser({
       if (!res.ok) throw new Error('Failed to rename file');
       fetchFiles(currentPath);
     } catch (err: any) {
-      alert(`Rename failed: ${err.message}`);
+      await showAlert('Error', `Rename failed: ${err.message}`);
     }
   };
 
   const handleDelete = async (file: any) => {
-    if (!window.confirm(`Are you sure you want to delete ${file.name}?`)) return;
+    if (!(await showConfirm("Delete File", `Are you sure you want to delete ${file.name}?`))) return;
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const res = await fetch(`${apiUrl}${apiPrefix}/files/delete?path=${encodeURIComponent(file.path)}`, {
@@ -277,7 +309,7 @@ export function FileBrowser({
       if (!res.ok) throw new Error('Failed to delete file');
       fetchFiles(currentPath);
     } catch (err: any) {
-      alert(`Delete failed: ${err.message}`);
+      await showAlert('Error', `Delete failed: ${err.message}`);
     }
   };
 
@@ -298,7 +330,7 @@ export function FileBrowser({
   return (
     <div className="flex flex-col h-full bg-[#1e1e1e] relative">
       <div className="flex items-center justify-between px-4 py-3 bg-[#252525] border-b border-white/5">
-        <div className="flex items-center gap-2 overflow-hidden">
+        <div className="flex items-center gap-2 overflow-hidden flex-1 mr-4">
           <button
             onClick={handleBack}
             disabled={currentPath === '/'}
@@ -306,9 +338,17 @@ export function FileBrowser({
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <div className="flex items-center text-xs text-white/70 font-mono truncate">
-            {nodeName}:{currentPath.startsWith('/') ? currentPath : '/' + currentPath}
+          <div className="flex items-center text-xs text-white/70 font-mono shrink-0">
+            {nodeName}:
           </div>
+          <form onSubmit={(e) => { e.preventDefault(); fetchFiles(pathInput); }} className="flex-1 max-w-full">
+            <input
+              value={pathInput}
+              onChange={(e) => setPathInput(e.target.value)}
+              className="w-full bg-transparent border border-transparent focus:border-blue-500/50 rounded px-1 py-0.5 text-xs text-white/90 font-mono outline-none transition-colors"
+              placeholder="/path/to/folder"
+            />
+          </form>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {!isFullscreen && (
@@ -524,6 +564,62 @@ export function FileBrowser({
               </button>
             </>
           )}
+        </div>
+      )}
+      {/* Dialog Modal */}
+      {dialog && dialog.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-[#1e1e1e] border border-white/10 rounded-lg shadow-2xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+              <h3 className="text-base font-medium text-white/90">{dialog.title}</h3>
+              <button onClick={() => dialog.onCancel?.()} className="text-white/40 hover:text-white/80 transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="px-5 py-5">
+              <p className="text-sm text-white/70 mb-4">{dialog.message}</p>
+              {dialog.type === 'prompt' && (
+                <input 
+                  type="text" 
+                  autoFocus
+                  defaultValue={dialog.defaultValue}
+                  className="w-full bg-[#2a2a2a] border border-white/10 rounded-md px-3 py-2 text-sm text-white/90 outline-none focus:border-blue-500/50 transition-colors"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') dialog.onConfirm?.((e.target as HTMLInputElement).value);
+                    if (e.key === 'Escape') dialog.onCancel?.();
+                  }}
+                  id="dialog-prompt-input"
+                />
+              )}
+            </div>
+            <div className="px-5 py-4 bg-[#151515] flex items-center justify-end gap-3 border-t border-white/10">
+              {dialog.type !== 'alert' && (
+                <button
+                  onClick={() => dialog.onCancel?.()}
+                  className="px-4 py-2 text-sm font-medium text-white/60 hover:text-white/90 hover:bg-white/5 rounded-md transition-colors"
+                >
+                  Cancel
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  if (dialog.type === 'prompt') {
+                    const val = (document.getElementById('dialog-prompt-input') as HTMLInputElement)?.value;
+                    dialog.onConfirm?.(val);
+                  } else {
+                    dialog.onConfirm?.();
+                  }
+                }}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  dialog.type === 'confirm' && dialog.title.toLowerCase().includes('delete') 
+                    ? 'bg-red-500 hover:bg-red-600 text-white' 
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+              >
+                {dialog.type === 'alert' ? 'OK' : dialog.type === 'confirm' ? 'Confirm' : 'Submit'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

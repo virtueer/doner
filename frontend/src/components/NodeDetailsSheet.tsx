@@ -136,9 +136,29 @@ export function NodeDetailsSheet({
 
   const handleDisconnect = useCallback(() => setIsAttached(false), []);
 
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+  } | null>(null);
+
   const handleClose = useCallback(() => {
     if (hasUnsavedChanges) {
-      if (!window.confirm("You have unsaved changes. Are you sure you want to close?")) return;
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to close?',
+        onConfirm: () => {
+          setConfirmDialog(null);
+          onClose();
+        },
+        onCancel: () => {
+          setConfirmDialog(null);
+        }
+      });
+      return;
     }
     onClose();
   }, [hasUnsavedChanges, onClose]);
@@ -521,6 +541,37 @@ export function NodeDetailsSheet({
           )}
         </div>
       </div>
+
+      {/* Confirm Dialog Modal */}
+      {confirmDialog && confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-[#1e1e1e] border border-white/10 rounded-lg shadow-2xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+              <h3 className="text-base font-medium text-white/90">{confirmDialog.title}</h3>
+              <button onClick={confirmDialog.onCancel} className="text-white/40 hover:text-white/80 transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="px-5 py-5">
+              <p className="text-sm text-white/70 mb-4">{confirmDialog.message}</p>
+            </div>
+            <div className="px-5 py-4 bg-[#151515] flex items-center justify-end gap-3 border-t border-white/10">
+              <button
+                onClick={confirmDialog.onCancel}
+                className="px-4 py-2 text-sm font-medium text-white/60 hover:text-white/90 hover:bg-white/5 rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDialog.onConfirm}
+                className="px-4 py-2 text-sm font-medium bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
