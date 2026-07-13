@@ -453,7 +453,7 @@ export class DockerService {
         if (!name) return null;
         const basename = name.split('/').pop() || '';
         return {
-          type: type === 'directory' ? 'directory' : 'file',
+          type: type === 'directory' ? 'directory' : type.includes('link') ? 'symlink' : 'file',
           size: parseInt(size, 10) || 0,
           mtime: parseInt(mtime, 10) * 1000 || 0,
           name: basename,
@@ -494,6 +494,32 @@ export class DockerService {
     }
   }
 
+  async deleteVolumeFile(volumeName: string, path: string) {
+    const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const fullPath = `/data/${safePath}`;
+    const cmdArray = ['rm', '-rf', fullPath];
+    
+    try {
+      await this.runAlpineCommand(volumeName, cmdArray, false);
+    } catch (err: any) {
+      throw new Error(`Failed to delete file: ${err.message}`);
+    }
+  }
+
+  async copyVolumeFile(volumeName: string, srcPath: string, destPath: string) {
+    const safeSrc = srcPath.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const safeDest = destPath.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const fullSrc = `/data/${safeSrc}`;
+    const fullDest = `/data/${safeDest}`;
+    const cmdArray = ['cp', '-r', fullSrc, fullDest];
+    
+    try {
+      await this.runAlpineCommand(volumeName, cmdArray, false);
+    } catch (err: any) {
+      throw new Error(`Failed to copy file: ${err.message}`);
+    }
+  }
+
   async listContainerFiles(containerId: string, path: string = '') {
     const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
     const fullPath = `/proc/1/root/${safePath}`;
@@ -509,7 +535,7 @@ export class DockerService {
         if (!name) return null;
         const basename = name.split('/').pop() || '';
         return {
-          type: type === 'directory' ? 'directory' : 'file',
+          type: type === 'directory' ? 'directory' : type.includes('link') ? 'symlink' : 'file',
           size: parseInt(size, 10) || 0,
           mtime: parseInt(mtime, 10) * 1000 || 0,
           name: basename,
@@ -546,7 +572,33 @@ export class DockerService {
     try {
       await this.runAlpineContainerCommand(containerId, cmdArray);
     } catch (err: any) {
-      throw new Error(`Failed to write container file: ${err.message}`);
+      throw new Error(`Failed to write file: ${err.message}`);
+    }
+  }
+
+  async deleteContainerFile(containerId: string, path: string) {
+    const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const fullPath = `/proc/1/root/${safePath}`;
+    const cmdArray = ['rm', '-rf', fullPath];
+    
+    try {
+      await this.runAlpineContainerCommand(containerId, cmdArray);
+    } catch (err: any) {
+      throw new Error(`Failed to delete file: ${err.message}`);
+    }
+  }
+
+  async copyContainerFile(containerId: string, srcPath: string, destPath: string) {
+    const safeSrc = srcPath.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const safeDest = destPath.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const fullSrc = `/proc/1/root/${safeSrc}`;
+    const fullDest = `/proc/1/root/${safeDest}`;
+    const cmdArray = ['cp', '-r', fullSrc, fullDest];
+    
+    try {
+      await this.runAlpineContainerCommand(containerId, cmdArray);
+    } catch (err: any) {
+      throw new Error(`Failed to copy file: ${err.message}`);
     }
   }
 

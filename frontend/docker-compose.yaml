@@ -4,6 +4,7 @@ services:
       context: .
       args:
         VITE_API_URL: http://doner-api.mynet.local:3000
+    image: doner-frontend
     container_name: doner-frontend
     environment:
       - NODE_ENV=production

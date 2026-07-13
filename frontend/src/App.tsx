@@ -19,6 +19,7 @@ import { VolumeNode } from './components/VolumeNode';
 import { NodeDetailsSheet } from './components/NodeDetailsSheet';
 import { LogsTerminal } from './components/LogsTerminal';
 import { AttachScreen } from './components/AttachScreen';
+import { FileBrowser } from './components/FileBrowser';
 import { RefreshCw, Sparkles, Search, Box, Network, Database } from 'lucide-react';
 
 const nodeTypes = {
@@ -518,12 +519,29 @@ function App() {
   const isTerminalMode = !!logsParam;
   const isAttachMode = !!attachParam;
 
+  const filesParam = params.get('files');
+  const apiPrefixParam = params.get('apiPrefix');
+  const typeParam = params.get('type') as 'volume' | 'container';
+
   if (isTerminalMode && logsParam && nameParam) {
     return <LogsTerminal containerId={logsParam} containerName={nameParam} />;
   }
 
   if (isAttachMode && attachParam && nameParam) {
     return <AttachScreen containerId={attachParam} containerName={nameParam} shell={shellParam} />;
+  }
+
+  if (filesParam === 'true' && apiPrefixParam && nameParam && typeParam) {
+    return (
+      <div className="w-full h-screen dark text-foreground overflow-hidden flex flex-col bg-[#1e1e1e]">
+        <FileBrowser 
+          apiPrefix={apiPrefixParam} 
+          nodeName={nameParam} 
+          type={typeParam} 
+          isFullscreen={true} 
+        />
+      </div>
+    );
   }
 
   return (

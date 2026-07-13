@@ -2,6 +2,7 @@ services:
   doner-backend:
     build: 
       context: .
+    image: doner-backend
     container_name: doner-backend
     restart: always
     networks:

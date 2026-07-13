@@ -94,6 +94,24 @@ export class AppController {
     return { success: true };
   }
 
+  @Post('volumes/:name/files/copy')
+  async copyVolumeFile(
+    @Param('name') name: string,
+    @Body() body: { srcPath: string, destPath: string }
+  ) {
+    await this.dockerService.copyVolumeFile(name, body.srcPath, body.destPath);
+    return { success: true };
+  }
+
+  @Post('volumes/:name/files/delete')
+  async deleteVolumeFile(
+    @Param('name') name: string,
+    @Query('path') path: string
+  ) {
+    await this.dockerService.deleteVolumeFile(name, path);
+    return { success: true };
+  }
+
   @Get('containers/:id/files')
   async listContainerFiles(@Param('id') id: string, @Query('path') path: string) {
     return this.dockerService.listContainerFiles(id, path || '');
@@ -112,6 +130,24 @@ export class AppController {
     @Body() body: { content: string }
   ) {
     await this.dockerService.writeContainerFile(id, path, body.content);
+    return { success: true };
+  }
+
+  @Post('containers/:id/files/copy')
+  async copyContainerFile(
+    @Param('id') id: string,
+    @Body() body: { srcPath: string, destPath: string }
+  ) {
+    await this.dockerService.copyContainerFile(id, body.srcPath, body.destPath);
+    return { success: true };
+  }
+
+  @Post('containers/:id/files/delete')
+  async deleteContainerFile(
+    @Param('id') id: string,
+    @Query('path') path: string
+  ) {
+    await this.dockerService.deleteContainerFile(id, path);
     return { success: true };
   }
 
