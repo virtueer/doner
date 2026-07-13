@@ -112,6 +112,24 @@ export class AppController {
     return { success: true };
   }
 
+  @Post('volumes/:name/files/mkdir')
+  async createVolumeDirectory(
+    @Param('name') name: string,
+    @Query('path') path: string
+  ) {
+    await this.dockerService.createVolumeDirectory(name, path);
+    return { success: true };
+  }
+
+  @Post('volumes/:name/files/rename')
+  async renameVolumeFile(
+    @Param('name') name: string,
+    @Body() body: { srcPath: string, destPath: string }
+  ) {
+    await this.dockerService.renameVolumeFile(name, body.srcPath, body.destPath);
+    return { success: true };
+  }
+
   @Get('containers/:id/files')
   async listContainerFiles(@Param('id') id: string, @Query('path') path: string) {
     return this.dockerService.listContainerFiles(id, path || '');
@@ -148,6 +166,24 @@ export class AppController {
     @Query('path') path: string
   ) {
     await this.dockerService.deleteContainerFile(id, path);
+    return { success: true };
+  }
+
+  @Post('containers/:id/files/mkdir')
+  async createContainerDirectory(
+    @Param('id') id: string,
+    @Query('path') path: string
+  ) {
+    await this.dockerService.createContainerDirectory(id, path);
+    return { success: true };
+  }
+
+  @Post('containers/:id/files/rename')
+  async renameContainerFile(
+    @Param('id') id: string,
+    @Body() body: { srcPath: string, destPath: string }
+  ) {
+    await this.dockerService.renameContainerFile(id, body.srcPath, body.destPath);
     return { success: true };
   }
 

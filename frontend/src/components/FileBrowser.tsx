@@ -1,16 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Folder, FileText, Download, ArrowLeft, X, Link, Database, Copy, Trash2, Edit2, ClipboardPaste, ExternalLink } from 'lucide-react';
+import { Folder, FileText, Download, ArrowLeft, X, Link, Database, Copy, Trash2, Edit2, ClipboardPaste, ExternalLink, FolderPlus, FilePlus, Type } from 'lucide-react';
 
 let globalClipboard: { apiPrefix: string, path: string, name: string, type: 'file' | 'directory' } | null = null;
 
-export function FileBrowser({ 
-  apiPrefix, 
-  nodeName, 
-  type, 
+export function FileBrowser({
+  apiPrefix,
+  nodeName,
+  type,
   mounts = [],
   isFullscreen = false,
-  onUnsavedChangesChange 
-}: { 
+  onUnsavedChangesChange
+}: {
   apiPrefix: string;
   nodeName: string;
   type: 'volume' | 'container';
@@ -167,6 +167,19 @@ export function FileBrowser({
     };
   };
 
+  const getUniqueName = (name: string, fileList: any[]) => {
+    let newName = name;
+    let counter = 1;
+    const nameWithoutExt = name.includes('.') ? name.substring(0, name.lastIndexOf('.')) : name;
+    const ext = name.includes('.') ? name.substring(name.lastIndexOf('.')) : '';
+
+    while (fileList.some(f => f.name === newName)) {
+      newName = `${nameWithoutExt}-${counter}${ext}`;
+      counter++;
+    }
+    return newName;
+  };
+
   const handlePaste = async () => {
     if (!globalClipboard) return;
     if (globalClipboard.apiPrefix !== apiPrefix) {
@@ -177,17 +190,80 @@ export function FileBrowser({
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const safeCurrentPath = currentPath.endsWith('/') ? currentPath : currentPath + '/';
-      const destPath = currentPath === '/' ? globalClipboard.name : safeCurrentPath + globalClipboard.name;
-      
+
+      const pasteName = files.some(f => f.name === globalClipboard?.name)
+        ? getUniqueName(globalClipboard?.name, files)
+        : globalClipboard?.name;
+
+      const destPath = currentPath === '/' ? pasteName : safeCurrentPath + pasteName;
+
       const res = await fetch(`${apiUrl}${apiPrefix}/files/copy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ srcPath: globalClipboard.path, destPath }),
       });
-      if (!res.ok) throw new Error('Failed to copy file');
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Failed to copy file');
+      }
       fetchFiles(currentPath);
     } catch (err: any) {
       alert(`Paste failed: ${err.message}`);
+    }
+  };
+
+  const handleMkdir = async () => {
+    const name = window.prompt("New folder name:");
+    if (!name) return;
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const safeCurrentPath = currentPath.endsWith('/') ? currentPath : currentPath + '/';
+      const destPath = currentPath === '/' ? name : safeCurrentPath + name;
+      const res = await fetch(`${apiUrl}${apiPrefix}/files/mkdir?path=${encodeURIComponent(destPath)}`, {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error('Failed to create directory');
+      fetchFiles(currentPath);
+    } catch (err: any) {
+      alert(`Create folder failed: ${err.message}`);
+    }
+  };
+
+  const handleNewFile = async () => {
+    const name = window.prompt("New file name:");
+    if (!name) return;
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const safeCurrentPath = currentPath.endsWith('/') ? currentPath : currentPath + '/';
+      const destPath = currentPath === '/' ? name : safeCurrentPath + name;
+      const res = await fetch(`${apiUrl}${apiPrefix}/files/write?path=${encodeURIComponent(destPath)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: '' }),
+      });
+      if (!res.ok) throw new Error('Failed to create file');
+      fetchFiles(currentPath);
+    } catch (err: any) {
+      alert(`Create file failed: ${err.message}`);
+    }
+  };
+
+  const handleRename = async (file: any) => {
+    const newName = window.prompt("Enter new name:", file.name);
+    if (!newName || newName === file.name) return;
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const safeCurrentPath = currentPath.endsWith('/') ? currentPath : currentPath + '/';
+      const destPath = currentPath === '/' ? newName : safeCurrentPath + newName;
+      const res = await fetch(`${apiUrl}${apiPrefix}/files/rename`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ srcPath: file.path, destPath }),
+      });
+      if (!res.ok) throw new Error('Failed to rename file');
+      fetchFiles(currentPath);
+    } catch (err: any) {
+      alert(`Rename failed: ${err.message}`);
     }
   };
 
@@ -325,8 +401,8 @@ export function FileBrowser({
               <thead>
                 <tr className="border-b border-white/5 text-xs text-white/40 font-medium">
                   <th className="pb-2 font-normal pl-2 w-full">Name</th>
-                  <th className="pb-2 font-normal px-4 whitespace-nowrap w-[1%]">Size</th>
-                  <th className="pb-2 font-normal whitespace-nowrap w-[1%] pr-4">Modified</th>
+                  <th className="pb-2 font-normal px-4 whitespace-nowrap w-[1%] text-right">Size</th>
+                  <th className="pb-2 font-normal whitespace-nowrap w-[1%] pr-4 text-right">Modified</th>
                 </tr>
               </thead>
               <tbody>
@@ -385,13 +461,13 @@ export function FileBrowser({
 
       {/* Context Menu */}
       {contextMenu && contextMenu.visible && (
-        <div 
+        <div
           className="fixed z-50 bg-[#2a2a2a] border border-white/10 rounded-md shadow-2xl py-1 w-48 text-sm"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
           {contextMenu.file && contextMenu.file.type === 'file' && (
-            <button 
+            <button
               className="w-full text-left px-4 py-2 hover:bg-blue-500/20 hover:text-blue-400 text-white/90 flex items-center gap-2 transition-colors"
               onClick={() => { handleEditContext(contextMenu.file); setContextMenu(null); }}
             >
@@ -399,14 +475,38 @@ export function FileBrowser({
             </button>
           )}
           {contextMenu.file && (
-            <button 
-              className="w-full text-left px-4 py-2 hover:bg-white/10 text-white/90 flex items-center gap-2 transition-colors"
-              onClick={() => { handleCopy(contextMenu.file); setContextMenu(null); }}
-            >
-              <Copy className="h-4 w-4" /> Copy
-            </button>
+            <>
+              <button
+                className="w-full text-left px-4 py-2 hover:bg-white/10 text-white/90 flex items-center gap-2 transition-colors"
+                onClick={() => { handleRename(contextMenu.file); setContextMenu(null); }}
+              >
+                <Type className="h-4 w-4" /> Rename
+              </button>
+              <button
+                className="w-full text-left px-4 py-2 hover:bg-white/10 text-white/90 flex items-center gap-2 transition-colors"
+                onClick={() => { handleCopy(contextMenu.file); setContextMenu(null); }}
+              >
+                <Copy className="h-4 w-4" /> Copy
+              </button>
+            </>
           )}
-          <button 
+          {!contextMenu.file && (
+            <>
+              <button
+                className="w-full text-left px-4 py-2 hover:bg-white/10 text-white/90 flex items-center gap-2 transition-colors"
+                onClick={() => { handleNewFile(); setContextMenu(null); }}
+              >
+                <FilePlus className="h-4 w-4" /> New File
+              </button>
+              <button
+                className="w-full text-left px-4 py-2 hover:bg-white/10 text-white/90 flex items-center gap-2 transition-colors"
+                onClick={() => { handleMkdir(); setContextMenu(null); }}
+              >
+                <FolderPlus className="h-4 w-4" /> New Folder
+              </button>
+            </>
+          )}
+          <button
             className="w-full text-left px-4 py-2 hover:bg-white/10 text-white/90 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
             disabled={!globalClipboard || globalClipboard.apiPrefix !== apiPrefix}
             onClick={() => { handlePaste(); setContextMenu(null); }}
@@ -416,7 +516,7 @@ export function FileBrowser({
           {contextMenu.file && (
             <>
               <div className="h-px bg-white/10 my-1" />
-              <button 
+              <button
                 className="w-full text-left px-4 py-2 hover:bg-red-500/20 hover:text-red-400 text-red-500 flex items-center gap-2 transition-colors"
                 onClick={() => { handleDelete(contextMenu.file); setContextMenu(null); }}
               >

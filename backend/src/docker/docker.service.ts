@@ -520,6 +520,26 @@ export class DockerService {
     }
   }
 
+  async createVolumeDirectory(volumeName: string, path: string) {
+    const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const fullPath = `/data/${safePath}`;
+    try {
+      await this.runAlpineCommand(volumeName, ['mkdir', '-p', fullPath], false);
+    } catch (err: any) {
+      throw new Error(`Failed to create directory: ${err.message}`);
+    }
+  }
+
+  async renameVolumeFile(volumeName: string, srcPath: string, destPath: string) {
+    const safeSrc = srcPath.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const safeDest = destPath.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    try {
+      await this.runAlpineCommand(volumeName, ['mv', `/data/${safeSrc}`, `/data/${safeDest}`], false);
+    } catch (err: any) {
+      throw new Error(`Failed to rename: ${err.message}`);
+    }
+  }
+
   async listContainerFiles(containerId: string, path: string = '') {
     const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
     const fullPath = `/proc/1/root/${safePath}`;
@@ -599,6 +619,26 @@ export class DockerService {
       await this.runAlpineContainerCommand(containerId, cmdArray);
     } catch (err: any) {
       throw new Error(`Failed to copy file: ${err.message}`);
+    }
+  }
+
+  async createContainerDirectory(containerId: string, path: string) {
+    const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const fullPath = `/proc/1/root/${safePath}`;
+    try {
+      await this.runAlpineContainerCommand(containerId, ['mkdir', '-p', fullPath]);
+    } catch (err: any) {
+      throw new Error(`Failed to create directory: ${err.message}`);
+    }
+  }
+
+  async renameContainerFile(containerId: string, srcPath: string, destPath: string) {
+    const safeSrc = srcPath.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const safeDest = destPath.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    try {
+      await this.runAlpineContainerCommand(containerId, ['mv', `/proc/1/root/${safeSrc}`, `/proc/1/root/${safeDest}`]);
+    } catch (err: any) {
+      throw new Error(`Failed to rename: ${err.message}`);
     }
   }
 
