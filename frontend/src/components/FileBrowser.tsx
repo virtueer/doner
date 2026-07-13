@@ -321,12 +321,12 @@ export function FileBrowser({
           <div className="p-4 text-white/40 text-sm italic">Empty directory</div>
         ) : (
           <div className="overflow-y-auto h-full p-2">
-            <table className="w-full text-left border-collapse table-fixed">
+            <table className="w-full text-left border-collapse table-auto">
               <thead>
                 <tr className="border-b border-white/5 text-xs text-white/40 font-medium">
-                  <th className="pb-2 font-normal pl-2">Name</th>
-                  <th className="pb-2 font-normal w-24">Size</th>
-                  <th className="pb-2 font-normal w-32">Modified</th>
+                  <th className="pb-2 font-normal pl-2 w-full">Name</th>
+                  <th className="pb-2 font-normal px-4 whitespace-nowrap">Size</th>
+                  <th className="pb-2 font-normal whitespace-nowrap">Modified</th>
                 </tr>
               </thead>
               <tbody>
@@ -342,7 +342,7 @@ export function FileBrowser({
                       }}
                       className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors group h-10"
                     >
-                      <td className="py-2 pl-2 overflow-hidden">
+                      <td className="py-2 pl-2 max-w-0 overflow-hidden">
                         <div className="flex items-center gap-2 min-w-0">
                           {isMount ? (
                             <Database className="h-4 w-4 text-purple-500 shrink-0" />
@@ -368,10 +368,10 @@ export function FileBrowser({
                           )}
                         </div>
                       </td>
-                      <td className="py-2 text-xs text-white/50 font-mono">
-                        {f.type === 'file' ? formatBytes(f.size) : '--'}
+                      <td className="py-2 px-4 max-w-0 overflow-hidden text-xs text-white/50 font-mono truncate" title={formatBytes(f.size)}>
+                        {formatBytes(f.size)}
                       </td>
-                      <td className="py-2 text-xs text-white/50">
+                      <td className="py-2 max-w-0 overflow-hidden text-xs text-white/50 truncate" title={new Date(f.mtime).toLocaleString()}>
                         {new Date(f.mtime).toLocaleString()}
                       </td>
                     </tr>
