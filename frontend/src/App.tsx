@@ -424,7 +424,7 @@ function Flow() {
                   let Icon = Box;
                   let iconColor = "text-green-500";
                   let typeLabel = "Container";
-                  
+
                   if (n.type === 'networkNode') {
                     Icon = Network;
                     iconColor = "text-indigo-500";
@@ -443,9 +443,8 @@ function Flow() {
                     <div
                       key={n.id}
                       onClick={() => handleSearchSelect(n.id)}
-                      className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors ${
-                        idx === searchSelectedIndex ? 'bg-primary/20 text-primary' : 'hover:bg-white/5 text-foreground'
-                      }`}
+                      className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors ${idx === searchSelectedIndex ? 'bg-primary/20 text-primary' : 'hover:bg-white/5 text-foreground'
+                        }`}
                     >
                       <div className="flex items-center gap-2 overflow-hidden">
                         <Icon className={`h-4 w-4 shrink-0 ${iconColor}`} />
@@ -509,6 +508,38 @@ function Flow() {
   );
 }
 
+function FileBrowserScreen({ apiPrefix, nodeName, type }: { apiPrefix: string, nodeName: string, type: 'volume' | 'container' }) {
+  const [mounts, setMounts] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (type !== 'container') return;
+    const fetchMounts = async () => {
+      try {
+        const rawId = apiPrefix.split('/').pop() || '';
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const res = await fetch(`${apiUrl}/api/inspect/containerNode/${rawId}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.Mounts) setMounts(json.Mounts);
+        }
+      } catch (e) { }
+    };
+    fetchMounts();
+  }, [type, apiPrefix]);
+
+  return (
+    <div className="w-full h-screen dark text-foreground overflow-hidden flex flex-col bg-[#1e1e1e]">
+      <FileBrowser
+        apiPrefix={apiPrefix}
+        nodeName={nodeName}
+        type={type}
+        mounts={mounts}
+        isFullscreen={true}
+      />
+    </div>
+  );
+}
+
 function App() {
   // Check for terminal mode via URL params
   const params = new URLSearchParams(window.location.search);
@@ -532,16 +563,7 @@ function App() {
   }
 
   if (filesParam === 'true' && apiPrefixParam && nameParam && typeParam) {
-    return (
-      <div className="w-full h-screen dark text-foreground overflow-hidden flex flex-col bg-[#1e1e1e]">
-        <FileBrowser 
-          apiPrefix={apiPrefixParam} 
-          nodeName={nameParam} 
-          type={typeParam} 
-          isFullscreen={true} 
-        />
-      </div>
-    );
+    return <FileBrowserScreen apiPrefix={apiPrefixParam} nodeName={nameParam} type={typeParam} />;
   }
 
   return (
