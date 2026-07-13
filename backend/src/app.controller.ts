@@ -94,6 +94,27 @@ export class AppController {
     return { success: true };
   }
 
+  @Get('containers/:id/files')
+  async listContainerFiles(@Param('id') id: string, @Query('path') path: string) {
+    return this.dockerService.listContainerFiles(id, path || '');
+  }
+
+  @Get('containers/:id/files/read')
+  async readContainerFile(@Param('id') id: string, @Query('path') path: string) {
+    const content = await this.dockerService.readContainerFile(id, path);
+    return { content };
+  }
+
+  @Post('containers/:id/files/write')
+  async writeContainerFile(
+    @Param('id') id: string,
+    @Query('path') path: string,
+    @Body() body: { content: string }
+  ) {
+    await this.dockerService.writeContainerFile(id, path, body.content);
+    return { success: true };
+  }
+
   @Get('volumes/:name/export')
   async exportVolume(@Param('name') name: string, @Res() res: any) {
     res.setHeader('Content-Type', 'application/gzip');

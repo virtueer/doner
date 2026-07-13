@@ -77,8 +77,8 @@ function ContainerLogs({ containerId, containerName }: { containerId: string; co
   );
 }
 
-// --- Sub-component for Volume Files ---
-function VolumeBrowser({ volumeName, onUnsavedChangesChange }: { volumeName: string, onUnsavedChangesChange?: (hasUnsaved: boolean) => void }) {
+// --- Sub-component for Volume/Container Files ---
+function FileBrowser({ apiPrefix, nodeName, type, onUnsavedChangesChange }: { apiPrefix: string, nodeName: string, type: 'volume' | 'container', onUnsavedChangesChange?: (hasUnsaved: boolean) => void }) {
   const [currentPath, setCurrentPath] = useState('/');
   const [files, setFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -98,7 +98,7 @@ function VolumeBrowser({ volumeName, onUnsavedChangesChange }: { volumeName: str
       setError(null);
       setViewFile(null);
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const res = await fetch(`${apiUrl}/api/volumes/${encodeURIComponent(volumeName)}/files?path=${encodeURIComponent(path)}`);
+      const res = await fetch(`${apiUrl}${apiPrefix}/files?path=${encodeURIComponent(path)}`);
       if (!res.ok) throw new Error('Failed to fetch files');
       const data = await res.json();
       setFiles(data);
@@ -108,7 +108,7 @@ function VolumeBrowser({ volumeName, onUnsavedChangesChange }: { volumeName: str
     } finally {
       setLoading(false);
     }
-  }, [volumeName]);
+  }, [apiPrefix]);
 
   useEffect(() => {
     fetchFiles('/');
@@ -125,7 +125,7 @@ function VolumeBrowser({ volumeName, onUnsavedChangesChange }: { volumeName: str
         setViewFilePath(file.path);
         setIsEditing(false);
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const res = await fetch(`${apiUrl}/api/volumes/${encodeURIComponent(volumeName)}/files/read?path=${encodeURIComponent(file.path)}`);
+        const res = await fetch(`${apiUrl}${apiPrefix}/files/read?path=${encodeURIComponent(file.path)}`);
         if (!res.ok) throw new Error('Failed to read file');
         const data = await res.json();
         setFileContent(data.content);
@@ -143,7 +143,7 @@ function VolumeBrowser({ volumeName, onUnsavedChangesChange }: { volumeName: str
     try {
       setSaving(true);
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const res = await fetch(`${apiUrl}/api/volumes/${encodeURIComponent(volumeName)}/files/write?path=${encodeURIComponent(viewFilePath)}`, {
+      const res = await fetch(`${apiUrl}${apiPrefix}/files/write?path=${encodeURIComponent(viewFilePath)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -185,8 +185,9 @@ function VolumeBrowser({ volumeName, onUnsavedChangesChange }: { volumeName: str
   };
 
   const handleExport = () => {
+    if (type !== 'volume') return;
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    window.open(`${apiUrl}/api/volumes/${encodeURIComponent(volumeName)}/export`, '_blank');
+    window.open(`${apiUrl}${apiPrefix}/export`, '_blank');
   };
 
   const formatBytes = (bytes: number, decimals = 2) => {
@@ -201,7 +202,7 @@ function VolumeBrowser({ volumeName, onUnsavedChangesChange }: { volumeName: str
   return (
     <div className="flex flex-col h-full bg-[#1e1e1e] relative">
       <div className="flex items-center justify-between px-4 py-3 bg-[#252525] border-b border-white/5">
-        <div className="flex items-center gap-2 overflow-hidden">
+          <div className="flex items-center gap-2 overflow-hidden">
           <button
             onClick={handleBack}
             disabled={currentPath === '/'}
@@ -210,16 +211,18 @@ function VolumeBrowser({ volumeName, onUnsavedChangesChange }: { volumeName: str
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="flex items-center text-xs text-white/70 font-mono truncate">
-            {volumeName}:{currentPath.startsWith('/') ? currentPath : '/' + currentPath}
+            {nodeName}:{currentPath.startsWith('/') ? currentPath : '/' + currentPath}
           </div>
         </div>
-        <button
-          onClick={handleExport}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-medium rounded-md transition-colors border border-blue-500/20 shrink-0"
-        >
-          <Download className="h-3.5 w-3.5" />
-          Export
-        </button>
+        {type === 'volume' && (
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-medium rounded-md transition-colors border border-blue-500/20 shrink-0"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-hidden relative">
@@ -576,7 +579,7 @@ export function NodeDetailsSheet({
                 </button>
               </>
             )}
-            {isVolume && (
+            {(isVolume || isContainer) && (
               <button
                 onClick={() => setActiveTab('files')}
                 className={`pb-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'files' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -710,7 +713,11 @@ export function NodeDetailsSheet({
           )}
 
           {activeTab === 'files' && isVolume && (
-            <VolumeBrowser volumeName={data?.Name || rawId} onUnsavedChangesChange={setHasUnsavedChanges} />
+            <FileBrowser apiPrefix={`/api/volumes/${encodeURIComponent(data?.Name || rawId)}`} nodeName={data?.Name || rawId} type="volume" onUnsavedChangesChange={setHasUnsavedChanges} />
+          )}
+
+          {activeTab === 'files' && isContainer && (
+            <FileBrowser apiPrefix={`/api/containers/${encodeURIComponent(rawId)}`} nodeName={data?.Name?.replace(/^\//, '') || rawId} type="container" onUnsavedChangesChange={setHasUnsavedChanges} />
           )}
         </div>
       </div>

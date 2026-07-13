@@ -414,6 +414,30 @@ export class DockerService {
     }
   }
 
+  private async runAlpineContainerCommand(containerId: string, cmdArray: string[]): Promise<string> {
+    let output = '';
+    const outStream = new stream.Writable({
+      write(chunk, encoding, callback) {
+        output += chunk.toString();
+        callback();
+      }
+    });
+
+    try {
+      await this.docker.run('alpine', cmdArray, outStream, {
+        Tty: true,
+        HostConfig: {
+          PidMode: `container:${containerId}`,
+          Privileged: true,
+          AutoRemove: true
+        }
+      });
+      return output.replace(/\r/g, '');
+    } catch (err: any) {
+      throw new Error(`Docker run on container failed: ${err.message}`);
+    }
+  }
+
   async listVolumeFiles(volumeName: string, path: string = '') {
     const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
     const fullPath = `/data/${safePath}`;
@@ -467,6 +491,62 @@ export class DockerService {
       await this.runAlpineCommand(volumeName, cmdArray, false);
     } catch (err: any) {
       throw new Error(`Failed to write file: ${err.message}`);
+    }
+  }
+
+  async listContainerFiles(containerId: string, path: string = '') {
+    const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const fullPath = `/proc/1/root/${safePath}`;
+    
+    const cmdArray = ['sh', '-c', `find '${fullPath}' -mindepth 1 -maxdepth 1 -exec stat -c '%F|%s|%Y|%n' {} + || true`];
+    
+    try {
+      const stdout = await this.runAlpineContainerCommand(containerId, cmdArray);
+      if (!stdout.trim()) return [];
+      
+      return stdout.trim().split('\n').map(line => {
+        const [type, size, mtime, name] = line.split('|');
+        if (!name) return null;
+        const basename = name.split('/').pop() || '';
+        return {
+          type: type === 'directory' ? 'directory' : 'file',
+          size: parseInt(size, 10) || 0,
+          mtime: parseInt(mtime, 10) * 1000 || 0,
+          name: basename,
+          path: safePath ? `${safePath}/${basename}` : basename,
+        };
+      }).filter(Boolean).sort((a: any, b: any) => {
+        if (a.type === b.type) return a.name.localeCompare(b.name);
+        return a.type === 'directory' ? -1 : 1;
+      });
+    } catch (err: any) {
+      throw new Error(`Failed to list container directory: ${err.message}`);
+    }
+  }
+
+  async readContainerFile(containerId: string, path: string) {
+    const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const fullPath = `/proc/1/root/${safePath}`;
+    const cmdArray = ['head', '-c', '1048576', fullPath];
+    
+    try {
+      const stdout = await this.runAlpineContainerCommand(containerId, cmdArray);
+      return stdout;
+    } catch (err: any) {
+      throw new Error(`Failed to read container file: ${err.message}`);
+    }
+  }
+
+  async writeContainerFile(containerId: string, path: string, content: string) {
+    const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const fullPath = `/proc/1/root/${safePath}`;
+    const base64Content = Buffer.from(content).toString('base64');
+    const cmdArray = ['sh', '-c', `echo '${base64Content}' | base64 -d > '${fullPath}'`];
+    
+    try {
+      await this.runAlpineContainerCommand(containerId, cmdArray);
+    } catch (err: any) {
+      throw new Error(`Failed to write container file: ${err.message}`);
     }
   }
 
