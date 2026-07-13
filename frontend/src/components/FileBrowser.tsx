@@ -325,8 +325,8 @@ export function FileBrowser({
               <thead>
                 <tr className="border-b border-white/5 text-xs text-white/40 font-medium">
                   <th className="pb-2 font-normal pl-2 w-full">Name</th>
-                  <th className="pb-2 font-normal px-4 whitespace-nowrap">Size</th>
-                  <th className="pb-2 font-normal whitespace-nowrap">Modified</th>
+                  <th className="pb-2 font-normal px-4 whitespace-nowrap w-[1%]">Size</th>
+                  <th className="pb-2 font-normal whitespace-nowrap w-[1%] pr-4">Modified</th>
                 </tr>
               </thead>
               <tbody>
@@ -368,10 +368,10 @@ export function FileBrowser({
                           )}
                         </div>
                       </td>
-                      <td className="py-2 px-4 max-w-0 overflow-hidden text-xs text-white/50 font-mono truncate" title={formatBytes(f.size)}>
+                      <td className="py-2 px-4 whitespace-nowrap text-xs text-white/50 font-mono" title={formatBytes(f.size)}>
                         {formatBytes(f.size)}
                       </td>
-                      <td className="py-2 max-w-0 overflow-hidden text-xs text-white/50 truncate" title={new Date(f.mtime).toLocaleString()}>
+                      <td className="py-2 whitespace-nowrap text-xs text-white/50 pr-4" title={new Date(f.mtime).toLocaleString()}>
                         {new Date(f.mtime).toLocaleString()}
                       </td>
                     </tr>
