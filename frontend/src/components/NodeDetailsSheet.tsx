@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Search, Terminal, ExternalLink, Info, Play, Folder, FileText, Download, ArrowLeft } from 'lucide-react';
+import { X, Search, Terminal, ExternalLink, Info, Play, Folder } from 'lucide-react';
 import { renderAnsiLine } from '@/lib/ansi';
 import { AttachTerminal } from './AttachTerminal';
 import { FileBrowser } from './FileBrowser';
@@ -100,11 +100,11 @@ export function NodeDetailsSheet({
   const [isAttached, setIsAttached] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  
+
   const [sheetWidth, setSheetWidth] = useState(() => window.innerWidth * 0.75);
   const isResizing = useRef(false);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handleMouseDown = useCallback((_: React.MouseEvent) => {
     isResizing.current = true;
     document.body.style.cursor = 'col-resize';
   }, []);
@@ -299,11 +299,11 @@ export function NodeDetailsSheet({
         className="fixed inset-0 bg-background/50 backdrop-blur-sm z-40 transition-opacity"
         onClick={handleClose}
       />
-      <div 
+      <div
         className="fixed inset-y-0 right-0 z-50 bg-card border-l border-border shadow-2xl flex flex-col animate-slide-in-right"
         style={{ width: sheetWidth }}
       >
-        <div 
+        <div
           className="absolute left-0 top-0 bottom-0 w-2 -ml-1 cursor-col-resize hover:bg-primary/20 transition-colors z-50 group flex items-center justify-center"
           onMouseDown={handleMouseDown}
         >
