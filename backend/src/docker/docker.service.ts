@@ -447,7 +447,7 @@ export class DockerService {
   async readVolumeFile(volumeName: string, path: string) {
     const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
     const fullPath = `/data/${safePath}`;
-    const cmdArray = ['head', '-c', '1M', fullPath];
+    const cmdArray = ['head', '-c', '1048576', fullPath];
     
     try {
       const stdout = await this.runAlpineCommand(volumeName, cmdArray);
