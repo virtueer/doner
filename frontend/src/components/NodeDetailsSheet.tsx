@@ -78,7 +78,7 @@ function ContainerLogs({ containerId, containerName }: { containerId: string; co
 }
 
 // --- Sub-component for Volume Files ---
-function VolumeBrowser({ volumeName }: { volumeName: string }) {
+function VolumeBrowser({ volumeName, onUnsavedChangesChange }: { volumeName: string, onUnsavedChangesChange?: (hasUnsaved: boolean) => void }) {
   const [currentPath, setCurrentPath] = useState('/');
   const [files, setFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -160,6 +160,23 @@ function VolumeBrowser({ volumeName }: { volumeName: string }) {
     }
   };
 
+  const hasUnsavedChanges = isEditing && editContent !== fileContent;
+
+  useEffect(() => {
+    if (onUnsavedChangesChange) {
+      onUnsavedChangesChange(hasUnsavedChanges);
+    }
+  }, [hasUnsavedChanges, onUnsavedChangesChange]);
+
+  const handleCloseFileView = () => {
+    if (hasUnsavedChanges) {
+      if (!window.confirm("Are you sure you want to discard unsaved changes?")) return;
+    }
+    setViewFile(null);
+    setViewFilePath(null);
+    setIsEditing(false);
+  };
+
   const handleBack = () => {
     if (currentPath === '/') return;
     const parts = currentPath.replace(/\/$/, '').split('/');
@@ -226,7 +243,7 @@ function VolumeBrowser({ volumeName }: { volumeName: string }) {
                     </button>
                   </>
                 )}
-                <button onClick={() => { setViewFile(null); setViewFilePath(null); }} className="p-1 hover:bg-white/10 rounded text-white/70 ml-2">
+                <button onClick={handleCloseFileView} className="p-1 hover:bg-white/10 rounded text-white/70 ml-2">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -321,8 +338,16 @@ export function NodeDetailsSheet({
   const [attachShell, setAttachShell] = useState('/bin/sh');
   const [isAttached, setIsAttached] = useState(false);
   const [stats, setStats] = useState<any>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const handleDisconnect = useCallback(() => setIsAttached(false), []);
+
+  const handleClose = useCallback(() => {
+    if (hasUnsavedChanges) {
+      if (!window.confirm("You have unsaved changes. Are you sure you want to close?")) return;
+    }
+    onClose();
+  }, [hasUnsavedChanges, onClose]);
 
   const rawId = nodeId.replace(/^(cont-|net-|vol-)/, '');
   const isContainer = nodeType === 'containerNode';
@@ -478,7 +503,7 @@ export function NodeDetailsSheet({
     <>
       <div
         className="fixed inset-0 bg-background/50 backdrop-blur-sm z-40 transition-opacity"
-        onClick={onClose}
+        onClick={handleClose}
       />
       <div className="fixed inset-y-0 right-0 z-50 w-3/4 max-w-5xl bg-card border-l border-border shadow-2xl flex flex-col animate-slide-in-right">
         {/* Header Section */}
@@ -507,7 +532,7 @@ export function NodeDetailsSheet({
                 </div>
               )}
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X className="h-5 w-5" />
@@ -685,7 +710,7 @@ export function NodeDetailsSheet({
           )}
 
           {activeTab === 'files' && isVolume && (
-            <VolumeBrowser volumeName={data?.Name || rawId} />
+            <VolumeBrowser volumeName={data?.Name || rawId} onUnsavedChangesChange={setHasUnsavedChanges} />
           )}
         </div>
       </div>
