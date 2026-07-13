@@ -298,16 +298,23 @@ function Flow() {
     es.onmessage = (event) => {
       try {
         const e = JSON.parse(event.data);
-        if (e.Action === 'start' && e.Type === 'container') {
+        const action = e.Action || e.status;
+        const type = e.Type || e.type;
+
+        if (e.Actor?.Attributes?.['doner.internal'] === 'true') {
+          return;
+        }
+
+        if (action === 'start' && type === 'container') {
           toast(`Container ${e.Actor?.Attributes?.name} started`, 'success');
           fetchGraphData();
-        } else if (e.Action === 'die' && e.Type === 'container') {
+        } else if (action === 'die' && type === 'container') {
           toast(`Container ${e.Actor?.Attributes?.name} stopped`, 'error');
           fetchGraphData();
-        } else if (e.Action === 'create' && e.Type === 'container') {
+        } else if (action === 'create' && type === 'container') {
           toast(`Container ${e.Actor?.Attributes?.name} created`, 'info');
           fetchGraphData();
-        } else if (e.Action === 'destroy' && e.Type === 'container') {
+        } else if (action === 'destroy' && type === 'container') {
           toast(`Container ${e.Actor?.Attributes?.name} deleted`, 'info');
           fetchGraphData();
         }

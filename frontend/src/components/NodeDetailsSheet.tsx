@@ -51,7 +51,10 @@ function ContainerLogs({ containerId, containerName }: { containerId: string; co
 
   return (
     <div className="flex flex-col h-full bg-[#0c0c0c] relative">
-      <div className="absolute top-2 right-4 z-10">
+      <div className="flex items-center justify-between px-4 py-2 bg-[#1a1a1a] border-b border-green-900/30">
+        <div className="text-green-700 text-xs font-mono">
+          $ docker logs -f {containerName}
+        </div>
         <button
           onClick={openTerminalTab}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -59,9 +62,6 @@ function ContainerLogs({ containerId, containerName }: { containerId: string; co
           <ExternalLink className="h-3 w-3" />
           Open in new tab
         </button>
-      </div>
-      <div className="px-4 py-2 text-green-700 text-xs border-b border-green-900/20 font-mono">
-        $ docker logs -f {containerName}
       </div>
       <div className="flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed">
         {logs.length === 0 && (
@@ -147,7 +147,27 @@ export function NodeDetailsSheet({
   const [copiedJson, setCopiedJson] = useState(false);
   const handleCopyJson = () => {
     if (!data) return;
-    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    const jsonStr = JSON.stringify(data, null, 2);
+    
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(jsonStr);
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = jsonStr;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+      } catch (error) {
+        console.error("Fallback copy failed", error);
+      }
+      textArea.remove();
+    }
+
     setCopiedJson(true);
     setTimeout(() => setCopiedJson(false), 2000);
   };

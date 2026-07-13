@@ -432,6 +432,7 @@ export class DockerService {
     try {
       await this.docker.run('alpine', cmdArray, outStream, {
         Tty: true,
+        Labels: { 'doner.internal': 'true' },
         HostConfig: {
           Binds: [`${volumeName}:/data${readOnly ? ':ro' : ''}`],
           AutoRemove: true
@@ -455,6 +456,7 @@ export class DockerService {
     try {
       await this.docker.run('alpine', cmdArray, outStream, {
         Tty: true,
+        Labels: { 'doner.internal': 'true' },
         HostConfig: {
           PidMode: `container:${containerId}`,
           Privileged: true,
@@ -675,6 +677,7 @@ export class DockerService {
     const container = await this.docker.createContainer({
       Image: 'alpine',
       Cmd: ['sleep', '3600'],
+      Labels: { 'doner.internal': 'true' },
       HostConfig: {
         Binds: [`${volumeName}:/data:ro`],
         AutoRemove: true
