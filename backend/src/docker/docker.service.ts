@@ -1,15 +1,100 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import Docker from 'dockerode';
 import type { Container } from 'dockerode';
 import * as stream from 'stream';
 import * as zlib from 'zlib';
 
 @Injectable()
-export class DockerService {
+export class DockerService implements OnModuleDestroy {
   private docker: Docker;
+  
+  // Track helper containers: Map<targetId, { containerId: string, lastUsed: number, type: 'volume'|'container' }>
+  private activeHelpers: Map<string, { containerId: string, lastUsed: number, type: 'volume'|'container' }> = new Map();
+  private cleanupInterval: NodeJS.Timeout;
 
   constructor() {
     this.docker = new Docker(); // Defaults to standard socket/pipe
+    
+    // Garbage collection for helper containers every 30 seconds
+    this.cleanupInterval = setInterval(async () => {
+      const now = Date.now();
+      for (const [targetId, helper] of this.activeHelpers.entries()) {
+        // Idle for > 2 minutes (120,000 ms)
+        if (now - helper.lastUsed > 120000) {
+          try {
+            const container = this.docker.getContainer(helper.containerId);
+            await container.stop({ t: 1 }).catch(() => {});
+            await container.remove({ force: true }).catch(() => {});
+          } catch (e) {}
+          this.activeHelpers.delete(targetId);
+        }
+      }
+    }, 30000);
+  }
+
+  async onModuleDestroy() {
+    clearInterval(this.cleanupInterval);
+    // Cleanup all active helper containers on shutdown
+    for (const helper of this.activeHelpers.values()) {
+      try {
+        const container = this.docker.getContainer(helper.containerId);
+        await container.stop({ t: 1 }).catch(() => {});
+        await container.remove({ force: true }).catch(() => {});
+      } catch (e) {}
+    }
+    this.activeHelpers.clear();
+  }
+
+  private async getHelperContainer(targetId: string, type: 'volume'|'container', readOnly: boolean = false): Promise<string> {
+    const existing = this.activeHelpers.get(targetId);
+    
+    if (existing) {
+      try {
+        const container = this.docker.getContainer(existing.containerId);
+        const info = await container.inspect();
+        if (info.State.Running) {
+          existing.lastUsed = Date.now();
+          return existing.containerId;
+        }
+      } catch (e) {
+        // Container dead or missing, recreate
+      }
+      this.activeHelpers.delete(targetId);
+    }
+
+    // Create new helper container
+    const name = `doner-fs-${type}-${targetId.substring(0, 12)}-${Math.random().toString(36).substring(7)}`;
+    const options: any = {
+      Image: 'alpine',
+      Cmd: ['sleep', 'infinity'],
+      name,
+      Labels: { 'doner.internal': 'true' },
+      HostConfig: {
+        AutoRemove: true,
+      }
+    };
+
+    if (type === 'volume') {
+      options.HostConfig.Binds = [`${targetId}:/data${readOnly ? ':ro' : ''}`];
+    } else {
+      options.HostConfig.PidMode = `container:${targetId}`;
+      options.HostConfig.Privileged = true;
+    }
+
+    try {
+      const container = await this.docker.createContainer(options);
+      await container.start();
+      
+      this.activeHelpers.set(targetId, {
+        containerId: container.id,
+        lastUsed: Date.now(),
+        type
+      });
+      
+      return container.id;
+    } catch (err: any) {
+      throw new Error(`Failed to create helper container: ${err.message}`);
+    }
   }
 
   async getContainerLogsStream(containerId: string, signal?: AbortSignal): Promise<AsyncIterable<string>> {
@@ -420,52 +505,47 @@ export class DockerService {
       throw error;
     }
   }
-  private async runAlpineCommand(volumeName: string, cmdArray: string[], readOnly: boolean = true): Promise<string> {
-    let output = '';
-    const outStream = new stream.Writable({
-      write(chunk, encoding, callback) {
-        output += chunk.toString();
-        callback();
-      }
+  private async execInContainer(containerId: string, cmdArray: string[]): Promise<string> {
+    const container = this.docker.getContainer(containerId);
+    const exec = await container.exec({
+      Cmd: cmdArray,
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: true
     });
-
-    try {
-      await this.docker.run('alpine', cmdArray, outStream, {
-        Tty: true,
-        Labels: { 'doner.internal': 'true' },
-        HostConfig: {
-          Binds: [`${volumeName}:/data${readOnly ? ':ro' : ''}`],
-          AutoRemove: true
-        }
+    
+    const streamInfo = await exec.start({ Detach: false, Tty: true });
+    
+    return new Promise((resolve, reject) => {
+      let output = '';
+      streamInfo.on('data', (chunk) => {
+        output += chunk.toString('utf8');
       });
-      return output.replace(/\r/g, '');
+      streamInfo.on('end', () => {
+        resolve(output.replace(/\r/g, ''));
+      });
+      streamInfo.on('error', (err) => {
+        reject(err);
+      });
+    });
+  }
+
+  private async runAlpineCommand(volumeName: string, cmdArray: string[], readOnly: boolean = true): Promise<string> {
+    try {
+      // We ignore readOnly here because the persistent helper is mounted rw to support all operations
+      const helperId = await this.getHelperContainer(volumeName, 'volume', false);
+      return await this.execInContainer(helperId, cmdArray);
     } catch (err: any) {
-      throw new Error(`Docker run failed: ${err.message}`);
+      throw new Error(`Helper exec failed: ${err.message}`);
     }
   }
 
   private async runAlpineContainerCommand(containerId: string, cmdArray: string[]): Promise<string> {
-    let output = '';
-    const outStream = new stream.Writable({
-      write(chunk, encoding, callback) {
-        output += chunk.toString();
-        callback();
-      }
-    });
-
     try {
-      await this.docker.run('alpine', cmdArray, outStream, {
-        Tty: true,
-        Labels: { 'doner.internal': 'true' },
-        HostConfig: {
-          PidMode: `container:${containerId}`,
-          Privileged: true,
-          AutoRemove: true
-        }
-      });
-      return output.replace(/\r/g, '');
+      const helperId = await this.getHelperContainer(containerId, 'container');
+      return await this.execInContainer(helperId, cmdArray);
     } catch (err: any) {
-      throw new Error(`Docker run on container failed: ${err.message}`);
+      throw new Error(`Helper exec failed: ${err.message}`);
     }
   }
 
@@ -674,29 +754,16 @@ export class DockerService {
   }
 
   async exportVolumeStream(volumeName: string, res: any) {
-    const container = await this.docker.createContainer({
-      Image: 'alpine',
-      Cmd: ['sleep', '3600'],
-      Labels: { 'doner.internal': 'true' },
-      HostConfig: {
-        Binds: [`${volumeName}:/data:ro`],
-        AutoRemove: true
-      }
-    });
-    
-    await container.start();
-    
-    const archiveStream = await container.getArchive({ path: '/data' });
-    const gzip = zlib.createGzip();
-    
-    archiveStream.pipe(gzip).pipe(res);
-    
-    const cleanup = () => {
-      container.stop().catch(() => {});
-    };
-    
-    archiveStream.on('end', cleanup);
-    archiveStream.on('error', cleanup);
-    res.on('close', cleanup);
+    try {
+      const helperId = await this.getHelperContainer(volumeName, 'volume', false);
+      const container = this.docker.getContainer(helperId);
+      
+      const archiveStream = await container.getArchive({ path: '/data' });
+      const gzip = zlib.createGzip();
+      
+      archiveStream.pipe(gzip).pipe(res);
+    } catch (err: any) {
+      throw new Error(`Failed to export volume: ${err.message}`);
+    }
   }
 }
