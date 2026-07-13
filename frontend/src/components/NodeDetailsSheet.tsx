@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Search, Terminal, ExternalLink, Info, Play, Folder } from 'lucide-react';
+import { X, Search, Terminal, ExternalLink, Info, Play, Folder, Box, Database, Network, Copy, Check } from 'lucide-react';
 import { renderAnsiLine } from '@/lib/ansi';
 import { AttachTerminal } from './AttachTerminal';
 import { FileBrowser } from './FileBrowser';
@@ -144,6 +144,14 @@ export function NodeDetailsSheet({
     onCancel: () => void;
   } | null>(null);
 
+  const [copiedJson, setCopiedJson] = useState(false);
+  const handleCopyJson = () => {
+    if (!data) return;
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    setCopiedJson(true);
+    setTimeout(() => setCopiedJson(false), 2000);
+  };
+
   const handleClose = useCallback(() => {
     if (hasUnsavedChanges) {
       setConfirmDialog({
@@ -254,22 +262,21 @@ export function NodeDetailsSheet({
     const memPercent = memLimit > 0 ? (memUsage / memLimit) * 100.0 : 0.0;
 
     return (
-      <div className="flex items-center gap-4 text-xs mt-3 bg-black/20 p-2 rounded-md border border-white/5 w-fit">
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+      <>
+        <div className="flex items-center gap-1.5 border-l border-white/10 pl-4">
+          <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
           <span className="font-semibold text-foreground/80">CPU:</span>
           <span className="font-mono text-blue-400">{cpuPercent.toFixed(2)}%</span>
         </div>
-        <div className="w-px h-4 bg-white/10" />
         <div
           className="flex items-center gap-1.5 cursor-help"
           title={`Usage: ${formatBytes(memUsage)} / Limit: ${formatBytes(memLimit)}`}
         >
-          <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
+          <div className="h-1.5 w-1.5 rounded-full bg-purple-500 animate-pulse" />
           <span className="font-semibold text-foreground/80">RAM:</span>
           <span className="font-mono text-purple-400">{memPercent.toFixed(2)}%</span>
         </div>
-      </div>
+      </>
     );
   };
 
@@ -278,16 +285,13 @@ export function NodeDetailsSheet({
     if (!data) return null;
     if (isContainer) {
       return (
-        <div className="flex flex-col">
-          <div className="flex flex-wrap gap-4 text-xs mt-2 text-muted-foreground">
-            <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">ID:</span> {data.Id?.substring(0, 12)}</div>
-            <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">Image:</span> {data.Config?.Image}</div>
-            <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">State:</span>
-              <span className={data.State?.Running ? 'text-green-500' : 'text-red-500'}>
-                {data.State?.Status}
-              </span>
-            </div>
-            <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">Created:</span> {new Date(data.Created).toLocaleString()}</div>
+        <div className="flex flex-wrap items-center gap-4 text-xs mt-2 text-muted-foreground">
+          <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">ID:</span> {data.Id?.substring(0, 12)}</div>
+          <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">Image:</span> {data.Config?.Image}</div>
+          <div className="flex items-center gap-1"><span className="font-semibold text-foreground/80">State:</span>
+            <span className={data.State?.Running ? 'text-green-500' : 'text-red-500'}>
+              {data.State?.Status}
+            </span>
           </div>
           {renderStatsInfo()}
         </div>
@@ -334,7 +338,10 @@ export function NodeDetailsSheet({
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <Info className="h-5 w-5 text-primary" />
+                {isContainer ? <Box className="h-5 w-5 text-primary" /> : 
+                 isVolume ? <Database className="h-5 w-5 text-primary" /> : 
+                 nodeType === 'networkNode' ? <Network className="h-5 w-5 text-primary" /> : 
+                 <Info className="h-5 w-5 text-primary" />}
                 {nodeName}
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wider ml-2 align-middle">
                   {nodeType.replace('Node', '')}
@@ -349,8 +356,20 @@ export function NodeDetailsSheet({
             <div className="flex items-center gap-2 mt-4 sm:mt-0">
               {isContainer && (
                 <div className="flex items-center gap-2 mr-4 border-r border-border/20 pr-4">
-                  <button onClick={() => handleAction('start')} className="px-3 py-1.5 text-xs font-medium bg-green-500/10 text-green-500 hover:bg-green-500/20 border border-green-500/20 rounded-md transition-colors shadow-sm">Start</button>
-                  <button onClick={() => handleAction('stop')} className="px-3 py-1.5 text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 rounded-md transition-colors shadow-sm">Stop</button>
+                  <button 
+                    onClick={() => handleAction('start')} 
+                    disabled={data?.State?.Running}
+                    className="px-3 py-1.5 text-xs font-medium bg-green-500/10 text-green-500 hover:bg-green-500/20 border border-green-500/20 rounded-md transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Start
+                  </button>
+                  <button 
+                    onClick={() => handleAction('stop')} 
+                    disabled={!data?.State?.Running}
+                    className="px-3 py-1.5 text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 rounded-md transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Stop
+                  </button>
                   <button onClick={() => handleAction('restart')} className="px-3 py-1.5 text-xs font-medium bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border border-blue-500/20 rounded-md transition-colors shadow-sm">Restart</button>
                 </div>
               )}
@@ -449,8 +468,15 @@ export function NodeDetailsSheet({
                   </div>
 
                   {/* JSON Content */}
-                  <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
-                    <pre className="text-xs font-mono text-gray-300 overflow-x-auto bg-black/20 p-4 rounded-lg m-0">
+                  <div className="flex-1 overflow-y-auto p-6 scroll-smooth relative">
+                    <button
+                      onClick={handleCopyJson}
+                      className="absolute top-8 right-8 p-2 rounded-md bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
+                      title="Copy JSON"
+                    >
+                      {copiedJson ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                    </button>
+                    <pre className="text-xs font-mono text-gray-300 overflow-x-auto bg-black/20 p-4 rounded-lg m-0 relative">
                       {`{\n`}
                       {rootKeys.map((key, index) => {
                         const str = JSON.stringify({ [key]: data[key] }, null, 2);
