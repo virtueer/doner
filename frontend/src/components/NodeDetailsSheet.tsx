@@ -85,8 +85,12 @@ function VolumeBrowser({ volumeName }: { volumeName: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const [viewFile, setViewFile] = useState<string | null>(null);
+  const [viewFilePath, setViewFilePath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string>('');
   const [fileLoading, setFileLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const fetchFiles = useCallback(async (path: string) => {
     try {
@@ -118,16 +122,41 @@ function VolumeBrowser({ volumeName }: { volumeName: string }) {
       try {
         setFileLoading(true);
         setViewFile(file.name);
+        setViewFilePath(file.path);
+        setIsEditing(false);
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         const res = await fetch(`${apiUrl}/api/volumes/${encodeURIComponent(volumeName)}/files/read?path=${encodeURIComponent(file.path)}`);
         if (!res.ok) throw new Error('Failed to read file');
         const data = await res.json();
         setFileContent(data.content);
+        setEditContent(data.content);
       } catch (err: any) {
         setFileContent(`Error: ${err.message}`);
       } finally {
         setFileLoading(false);
       }
+    }
+  };
+
+  const handleSave = async () => {
+    if (!viewFilePath) return;
+    try {
+      setSaving(true);
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${apiUrl}/api/volumes/${encodeURIComponent(volumeName)}/files/write?path=${encodeURIComponent(viewFilePath)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content: editContent }),
+      });
+      if (!res.ok) throw new Error('Failed to write file');
+      setFileContent(editContent);
+      setIsEditing(false);
+    } catch (err: any) {
+      alert(`Save failed: ${err.message}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -181,13 +210,37 @@ function VolumeBrowser({ volumeName }: { volumeName: string }) {
           <div className="absolute inset-0 flex flex-col bg-[#1e1e1e] z-10">
             <div className="px-4 py-2 bg-black/20 border-b border-white/5 flex items-center justify-between shrink-0">
               <span className="text-sm font-mono text-white/90 truncate">{viewFile}</span>
-              <button onClick={() => setViewFile(null)} className="p-1 hover:bg-white/10 rounded text-white/70">
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                {!fileLoading && !isEditing && (
+                  <button onClick={() => setIsEditing(true)} className="px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded text-white/80 transition-colors">
+                    Edit
+                  </button>
+                )}
+                {isEditing && (
+                  <>
+                    <button onClick={() => { setIsEditing(false); setEditContent(fileContent); }} disabled={saving} className="px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded text-white/80 transition-colors disabled:opacity-50">
+                      Cancel
+                    </button>
+                    <button onClick={handleSave} disabled={saving} className="px-2 py-1 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded transition-colors disabled:opacity-50">
+                      {saving ? 'Saving...' : 'Save'}
+                    </button>
+                  </>
+                )}
+                <button onClick={() => { setViewFile(null); setViewFilePath(null); }} className="p-1 hover:bg-white/10 rounded text-white/70 ml-2">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-            <div className="flex-1 overflow-auto p-4">
+            <div className="flex-1 overflow-auto p-4 flex flex-col">
               {fileLoading ? (
                 <div className="text-white/50 text-sm animate-pulse">Loading content...</div>
+              ) : isEditing ? (
+                <textarea
+                  className="flex-1 w-full bg-[#121212] border border-white/10 rounded p-3 text-xs font-mono text-green-400 focus:outline-none focus:border-blue-500/50 resize-none"
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  spellCheck={false}
+                />
               ) : (
                 <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap break-all">
                   {fileContent || <span className="text-white/30 italic">Empty file</span>}

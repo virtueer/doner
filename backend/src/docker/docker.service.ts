@@ -391,7 +391,7 @@ export class DockerService {
       throw error;
     }
   }
-  private async runAlpineCommand(volumeName: string, cmdArray: string[]): Promise<string> {
+  private async runAlpineCommand(volumeName: string, cmdArray: string[], readOnly: boolean = true): Promise<string> {
     let output = '';
     const outStream = new stream.Writable({
       write(chunk, encoding, callback) {
@@ -404,7 +404,7 @@ export class DockerService {
       await this.docker.run('alpine', cmdArray, outStream, {
         Tty: true,
         HostConfig: {
-          Binds: [`${volumeName}:/data:ro`],
+          Binds: [`${volumeName}:/data${readOnly ? ':ro' : ''}`],
           AutoRemove: true
         }
       });
@@ -454,6 +454,19 @@ export class DockerService {
       return stdout;
     } catch (err: any) {
       throw new Error(`Failed to read file: ${err.message}`);
+    }
+  }
+
+  async writeVolumeFile(volumeName: string, path: string, content: string) {
+    const safePath = path.replace(/(\.\.\/|\.\.\\)/g, '').replace(/^\/+/, '');
+    const fullPath = `/data/${safePath}`;
+    const base64Content = Buffer.from(content).toString('base64');
+    const cmdArray = ['sh', '-c', `echo '${base64Content}' | base64 -d > '${fullPath}'`];
+    
+    try {
+      await this.runAlpineCommand(volumeName, cmdArray, false);
+    } catch (err: any) {
+      throw new Error(`Failed to write file: ${err.message}`);
     }
   }
 

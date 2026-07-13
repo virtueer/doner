@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Res, Req, Query } from '@nestjs/common';
+import { Controller, Get, Post, Param, Res, Req, Query, Body } from '@nestjs/common';
 import { DockerService } from './docker/docker.service';
 
 @Controller('api')
@@ -82,6 +82,16 @@ export class AppController {
   async readVolumeFile(@Param('name') name: string, @Query('path') path: string) {
     const content = await this.dockerService.readVolumeFile(name, path);
     return { content };
+  }
+
+  @Post('volumes/:name/files/write')
+  async writeVolumeFile(
+    @Param('name') name: string,
+    @Query('path') path: string,
+    @Body() body: { content: string }
+  ) {
+    await this.dockerService.writeVolumeFile(name, path, body.content);
+    return { success: true };
   }
 
   @Get('volumes/:name/export')
