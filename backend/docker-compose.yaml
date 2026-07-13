@@ -1,3 +1,4 @@
+name: doner-backend
 services:
   doner-backend:
     build: 
