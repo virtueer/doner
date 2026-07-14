@@ -6,10 +6,11 @@ import '@xterm/xterm/css/xterm.css';
 interface AttachTerminalProps {
   containerId: string;
   shell: string;
+  isSidecar?: boolean;
   onDisconnect?: () => void;
 }
 
-export function AttachTerminal({ containerId, shell, onDisconnect }: AttachTerminalProps) {
+export function AttachTerminal({ containerId, shell, isSidecar, onDisconnect }: AttachTerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const termInstance = useRef<Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -48,7 +49,7 @@ export function AttachTerminal({ containerId, shell, onDisconnect }: AttachTermi
     const apiUrl = import.meta.env.VITE_API_URL || `http://localhost:3000`;
     const wsUrl = apiUrl.replace(/^http/, 'ws');
     
-    const ws = new WebSocket(`${wsUrl}/api/attach?containerId=${containerId}&shell=${encodeURIComponent(shell)}`);
+    const ws = new WebSocket(`${wsUrl}/api/attach?containerId=${containerId}&shell=${encodeURIComponent(shell)}${isSidecar ? '&sidecar=true' : ''}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -61,7 +62,7 @@ export function AttachTerminal({ containerId, shell, onDisconnect }: AttachTermi
 
     ws.onclose = () => {
       term.writeln('\r\n\x1b[31mConnection closed.\x1b[0m');
-      if (onDisconnect) onDisconnect();
+      // Intentionally not calling onDisconnect() here so the terminal output remains visible on error or close.
     };
 
     ws.onerror = (error) => {

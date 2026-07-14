@@ -97,7 +97,7 @@ export function NodeDetailsSheet({
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'inspect' | 'logs' | 'attach' | 'files'>('inspect');
   const [attachShell, setAttachShell] = useState('/bin/sh');
-  const [isAttached, setIsAttached] = useState(false);
+  const [attachMode, setAttachMode] = useState<'none' | 'normal' | 'sidecar'>('none');
   const [stats, setStats] = useState<any>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -134,7 +134,7 @@ export function NodeDetailsSheet({
     };
   }, []);
 
-  const handleDisconnect = useCallback(() => setIsAttached(false), []);
+  const handleDisconnect = useCallback(() => setAttachMode('none'), []);
 
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -538,22 +538,30 @@ export function NodeDetailsSheet({
                   <select
                     value={attachShell}
                     onChange={(e) => setAttachShell(e.target.value)}
-                    disabled={isAttached}
+                    disabled={attachMode !== 'none'}
                     className="bg-[#2a2a2a] text-xs text-white px-2 py-1 rounded border border-white/10 outline-none"
                   >
                     <option value="/bin/sh">/bin/sh</option>
                     <option value="/bin/bash">/bin/bash</option>
                   </select>
-                  {!isAttached ? (
-                    <button
-                      onClick={() => setIsAttached(true)}
-                      className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition-colors"
-                    >
-                      Connect
-                    </button>
+                  {attachMode === 'none' ? (
+                    <>
+                      <button
+                        onClick={() => setAttachMode('normal')}
+                        className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition-colors"
+                      >
+                        Connect
+                      </button>
+                      <button
+                        onClick={() => setAttachMode('sidecar')}
+                        className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-xs rounded transition-colors"
+                      >
+                        Connect with Sidecar
+                      </button>
+                    </>
                   ) : (
                     <button
-                      onClick={() => setIsAttached(false)}
+                      onClick={() => setAttachMode('none')}
                       className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-xs rounded transition-colors"
                     >
                       Disconnect
@@ -563,7 +571,8 @@ export function NodeDetailsSheet({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
-                      const url = `${window.location.origin}?attach=${encodeURIComponent(rawId)}&shell=${encodeURIComponent(attachShell)}&name=${encodeURIComponent(nodeName)}`;
+                      const sidecarParam = attachMode === 'sidecar' ? '&sidecar=true' : '';
+                      const url = `${window.location.origin}?attach=${encodeURIComponent(rawId)}&shell=${encodeURIComponent(attachShell)}&name=${encodeURIComponent(nodeName)}${sidecarParam}`;
                       window.open(url, '_blank');
                     }}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -574,10 +583,11 @@ export function NodeDetailsSheet({
                 </div>
               </div>
               <div className="flex-1 min-h-0 overflow-hidden">
-                {isAttached ? (
+                {attachMode !== 'none' ? (
                   <AttachTerminal
                     containerId={rawId}
                     shell={attachShell}
+                    isSidecar={attachMode === 'sidecar'}
                     onDisconnect={handleDisconnect}
                   />
                 ) : (

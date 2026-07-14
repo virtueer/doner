@@ -45,10 +45,14 @@ export class DockerGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // We need dockerService to expose the raw docker instance or an attach method.
-      // Assuming dockerService.getDocker() is available, or we just add the logic here.
-      // Let's call a method on dockerService that returns the exec stream.
-      const stream = await this.dockerService.attachToContainer(containerId, shell);
+      const isSidecar = url.searchParams.get('sidecar') === 'true';
+
+      let stream;
+      if (isSidecar) {
+        stream = await this.dockerService.attachSidecar(containerId);
+      } else {
+        stream = await this.dockerService.attachToContainer(containerId, shell);
+      }
 
       // Pipe docker output to websocket
       stream.on('data', (chunk) => {

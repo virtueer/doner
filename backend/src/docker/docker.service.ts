@@ -176,6 +176,94 @@ export class DockerService implements OnModuleDestroy {
     return stream;
   }
 
+  async attachSidecar(targetContainerId: string) {
+    const name = `doner-sidecar-${targetContainerId.substring(0, 12)}-${Math.random().toString(36).substring(7)}`;
+    
+    const sidecar = await this.docker.createContainer({
+      Image: 'alpine',
+      Cmd: ['sleep', 'infinity'],
+      name,
+      Labels: { 'doner.internal': 'true', 'doner.sidecar': 'true' },
+      HostConfig: {
+        AutoRemove: true,
+        Privileged: true,
+        PidMode: `container:${targetContainerId}`,
+        NetworkMode: `container:${targetContainerId}`
+      }
+    });
+    
+    await sidecar.start();
+    
+    const script = `#!/bin/sh
+TARGET_PID=1
+
+if [ ! -d "/proc/$TARGET_PID" ]; then
+    echo "❌ Hata: PID $TARGET_PID bulunamadı. --pid=container:<isim> parametresini kontrol edin."
+    exit 1
+fi
+
+echo "🚀 Jenerik Debug Ortamı Hazırlanıyor (Hedef PID: $TARGET_PID)..."
+
+# 1. PATH Dönüşümü: Hedef konteynerin PATH yollarını /proc/1/root prefix'i ile mevcut PATH'in BAŞINA ekler
+TARGET_PATH=$(strings /proc/$TARGET_PID/environ | grep '^PATH=' | cut -d= -f2)
+
+if [ -n "$TARGET_PATH" ]; then
+    NEW_PATHS=""
+    OLD_IFS=$IFS
+    IFS=":"
+    for path in $TARGET_PATH; do
+        if [ -n "$path" ]; then
+            NEW_PATHS="$NEW_PATHS/proc/$TARGET_PID/root$path:"
+        fi
+    done
+    IFS=$OLD_IFS
+    
+    export PATH="\${NEW_PATHS}\${PATH}"
+fi
+
+# 2. Diğer Değişkenler: Sadece mevcut sidecar'da tanımlı OLMAYAN env'leri içeri aktar
+for env in $(strings /proc/$TARGET_PID/environ); do
+    key=$(echo "$env" | cut -d= -f1)
+    val=$(echo "$env" | cut -d= -f2-)
+    
+    if [ "$key" != "PATH" ] && [ "$key" != "HOSTNAME" ] && [ "$key" != "SHLVL" ]; then
+        if ! printenv "$key" >/dev/null 2>&1; then
+            export "$key=$val"
+        fi
+    fi
+done
+
+echo "✅ Ortam hazırlandı!"
+echo "🔹 Eklenen PATH yolları: $NEW_PATHS"
+echo "🔹 Mevcut Araçlar (ls, cat, ps) ve Asıl Konteyner Araçları artık birlikte çalışabilir."
+echo "--------------------------------------------------------"
+
+# Kullanıcıyı yeni çevre değişkenleriyle etkileşimli shell'e bırak
+exec sh -i
+`;
+
+    const exec = await sidecar.exec({
+      AttachStdin: true,
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: true,
+      Cmd: ['sh', '-c', `echo '${Buffer.from(script).toString('base64')}' | base64 -d > /tmp/debug.sh && chmod +x /tmp/debug.sh && exec /tmp/debug.sh`],
+    });
+
+    const stream = await exec.start({
+      hijack: true,
+      stdin: true,
+      Tty: true,
+    });
+
+    const cleanup = () => sidecar.stop({ t: 1 }).catch(() => {});
+    stream.on('end', cleanup);
+    stream.on('close', cleanup);
+    stream.on('error', cleanup);
+
+    return stream;
+  }
+
   async startContainer(id: string) {
     return this.docker.getContainer(id).start();
   }

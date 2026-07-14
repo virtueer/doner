@@ -605,6 +605,7 @@ function App() {
   const nameParam = params.get('name');
   const attachParam = params.get('attach');
   const shellParam = params.get('shell') || '/bin/sh';
+  const sidecarParam = params.get('sidecar') === 'true';
   const isTerminalMode = !!logsParam;
   const isAttachMode = !!attachParam;
 
@@ -617,7 +618,7 @@ function App() {
   }
 
   if (isAttachMode && attachParam && nameParam) {
-    return <AttachScreen containerId={attachParam} containerName={nameParam} shell={shellParam} />;
+    return <AttachScreen containerId={attachParam} containerName={nameParam} shell={shellParam} isSidecar={sidecarParam} />;
   }
 
   if (filesParam === 'true' && apiPrefixParam && nameParam && typeParam) {

@@ -6,9 +6,10 @@ interface AttachScreenProps {
   containerId: string;
   containerName: string;
   shell: string;
+  isSidecar?: boolean;
 }
 
-export function AttachScreen({ containerId, containerName, shell }: AttachScreenProps) {
+export function AttachScreen({ containerId, containerName, shell, isSidecar }: AttachScreenProps) {
   useEffect(() => {
     document.title = `${containerName} — Attach (${shell})`;
   }, [containerName, shell]);
@@ -30,7 +31,7 @@ export function AttachScreen({ containerId, containerName, shell }: AttachScreen
 
       {/* Terminal Container */}
       <div className="flex-1 min-h-0 overflow-hidden p-2 pb-2">
-        <AttachTerminal containerId={containerId} shell={shell} />
+        <AttachTerminal containerId={containerId} shell={shell} isSidecar={isSidecar} />
       </div>
     </div>
   );
