@@ -198,13 +198,11 @@ export class DockerService implements OnModuleDestroy {
 TARGET_PID=1
 
 if [ ! -d "/proc/$TARGET_PID" ]; then
-    echo "❌ Hata: PID $TARGET_PID bulunamadı. --pid=container:<isim> parametresini kontrol edin."
+    echo "❌ Error: Target PID $TARGET_PID not found."
     exit 1
 fi
 
-echo "🚀 Jenerik Debug Ortamı Hazırlanıyor (Hedef PID: $TARGET_PID)..."
-
-# 1. PATH Dönüşümü: Hedef konteynerin PATH yollarını /proc/1/root prefix'i ile mevcut PATH'in BAŞINA ekler
+# 1. PATH Transformation: Prefix target container's PATH paths with /proc/1/root and prepend to current PATH
 TARGET_PATH=$(strings /proc/$TARGET_PID/environ | grep '^PATH=' | cut -d= -f2)
 
 if [ -n "$TARGET_PATH" ]; then
@@ -221,7 +219,7 @@ if [ -n "$TARGET_PATH" ]; then
     export PATH="\${NEW_PATHS}\${PATH}"
 fi
 
-# 2. Diğer Değişkenler: Sadece mevcut sidecar'da tanımlı OLMAYAN env'leri içeri aktar
+# 2. Other Variables: Import envs that are NOT defined in the current sidecar
 for env in $(strings /proc/$TARGET_PID/environ); do
     key=$(echo "$env" | cut -d= -f1)
     val=$(echo "$env" | cut -d= -f2-)
@@ -233,12 +231,9 @@ for env in $(strings /proc/$TARGET_PID/environ); do
     fi
 done
 
-echo "✅ Ortam hazırlandı!"
-echo "🔹 Eklenen PATH yolları: $NEW_PATHS"
-echo "🔹 Mevcut Araçlar (ls, cat, ps) ve Asıl Konteyner Araçları artık birlikte çalışabilir."
-echo "--------------------------------------------------------"
+echo "🚀 Sidecar environment ready (Merged target container's PATH and ENV)"
 
-# Kullanıcıyı yeni çevre değişkenleriyle etkileşimli shell'e bırak
+# Drop user into interactive shell with new environment variables
 exec sh -i
 `;
 
