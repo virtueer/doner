@@ -8,8 +8,8 @@ import * as zlib from 'zlib';
 export class DockerService implements OnModuleDestroy {
   private docker: Docker;
   
-  // Track helper containers: Map<targetId, { containerId: string, lastUsed: number, type: 'volume'|'container' }>
-  private activeHelpers: Map<string, { containerId: string, lastUsed: number, type: 'volume'|'container' }> = new Map();
+  // Track helper containers: Map<targetId, { containerId: string, lastUsed: number, type: 'volume'|'container'|'sidecar' }>
+  private activeHelpers: Map<string, { containerId: string, lastUsed: number, type: 'volume'|'container'|'sidecar' }> = new Map();
   private cleanupInterval: NodeJS.Timeout;
 
   constructor() {
@@ -45,7 +45,7 @@ export class DockerService implements OnModuleDestroy {
     this.activeHelpers.clear();
   }
 
-  private async getHelperContainer(targetId: string, type: 'volume'|'container', readOnly: boolean = false): Promise<string> {
+  private async getHelperContainer(targetId: string, type: 'volume'|'container'|'sidecar', readOnly: boolean = false): Promise<string> {
     const existing = this.activeHelpers.get(targetId);
     
     if (existing) {
@@ -194,6 +194,12 @@ export class DockerService implements OnModuleDestroy {
     
     await sidecar.start();
     
+    this.activeHelpers.set(sidecar.id, {
+      containerId: sidecar.id,
+      lastUsed: Date.now(),
+      type: 'sidecar'
+    });
+    
     const script = `#!/bin/sh
 TARGET_PID=1
 
@@ -251,7 +257,18 @@ exec sh -i
       Tty: true,
     });
 
-    const cleanup = () => sidecar.stop({ t: 1 }).catch(() => {});
+    stream.on('data', () => {
+      const helper = this.activeHelpers.get(sidecar.id);
+      if (helper) helper.lastUsed = Date.now();
+    });
+
+    const cleanup = async () => {
+      try {
+        await sidecar.stop({ t: 1 }).catch(() => {});
+        await sidecar.remove({ force: true }).catch(() => {});
+      } catch (e) {}
+      this.activeHelpers.delete(sidecar.id);
+    };
     stream.on('end', cleanup);
     stream.on('close', cleanup);
     stream.on('error', cleanup);
