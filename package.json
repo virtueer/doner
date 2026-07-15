@@ -1,16 +1,23 @@
 {
-  "name": "docker-network-visualizer",
-  "version": "1.0.0",
-  "description": "Docker Network Visualizer",
-  "scripts": {
-    "start": "concurrently \"pnpm run start:backend\" \"pnpm run start:frontend\"",
-    "start:backend": "cd backend && pnpm run start:dev",
-    "start:frontend": "cd frontend && pnpm run dev",
-    "install:all": "pnpm install && cd backend && pnpm install && cd ../frontend && pnpm install",
-    "prepare": "husky"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2",
-    "husky": "^9.1.7"
-  }
+	"name": "docker-network-visualizer",
+	"version": "1.0.0",
+	"description": "Docker Network Visualizer",
+	"scripts": {
+		"start": "concurrently \"pnpm run start:backend\" \"pnpm run start:frontend\"",
+		"start:backend": "cd backend && pnpm run start:dev",
+		"start:frontend": "cd frontend && pnpm run dev",
+		"install:all": "pnpm install && cd backend && pnpm install && cd ../frontend && pnpm install",
+		"prepare": "husky"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.4",
+		"concurrently": "^8.2.2",
+		"husky": "^9.1.7",
+		"lint-staged": "^17.0.8"
+	},
+	"lint-staged": {
+		"*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [
+			"biome check --write --no-errors-on-unmatched --unsafe"
+		]
+	}
 }

@@ -1,89 +1,95 @@
-import { useEffect, useRef } from 'react';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import '@xterm/xterm/css/xterm.css';
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal } from "@xterm/xterm";
+import { useEffect, useRef } from "react";
+import "@xterm/xterm/css/xterm.css";
 
 interface AttachTerminalProps {
-  containerId: string;
-  shell: string;
-  isSidecar?: boolean;
-  onDisconnect?: () => void;
+	containerId: string;
+	shell: string;
+	isSidecar?: boolean;
 }
 
-export function AttachTerminal({ containerId, shell, isSidecar, onDisconnect }: AttachTerminalProps) {
-  const terminalRef = useRef<HTMLDivElement>(null);
-  const termInstance = useRef<Terminal | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+export function AttachTerminal({
+	containerId,
+	shell,
+	isSidecar,
+}: AttachTerminalProps) {
+	const terminalRef = useRef<HTMLDivElement>(null);
+	const termInstance = useRef<Terminal | null>(null);
+	const wsRef = useRef<WebSocket | null>(null);
 
-  useEffect(() => {
-    if (!terminalRef.current) return;
+	useEffect(() => {
+		if (!terminalRef.current) return;
 
-    // Initialize xterm.js
-    const term = new Terminal({
-      cursorBlink: true,
-      theme: {
-        background: '#0c0c0c',
-        foreground: '#4ade80',
-        cursor: '#4ade80',
-        selectionBackground: 'rgba(74, 222, 128, 0.3)',
-      },
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-      fontSize: 12,
-    });
-    
-    const fitAddon = new FitAddon();
-    term.loadAddon(fitAddon);
-    
-    term.open(terminalRef.current);
-    fitAddon.fit();
-    termInstance.current = term;
+		// Initialize xterm.js
+		const term = new Terminal({
+			cursorBlink: true,
+			theme: {
+				background: "#0c0c0c",
+				foreground: "#4ade80",
+				cursor: "#4ade80",
+				selectionBackground: "rgba(74, 222, 128, 0.3)",
+			},
+			fontFamily:
+				'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+			fontSize: 12,
+		});
 
-    // Handle resize
-    const handleResize = () => {
-      fitAddon.fit();
-    };
-    window.addEventListener('resize', handleResize);
+		const fitAddon = new FitAddon();
+		term.loadAddon(fitAddon);
 
-    // Connect WebSocket
-    // If backend is running on port 3000 during dev, we use that
-    const apiUrl = import.meta.env.VITE_API_URL || `http://localhost:3000`;
-    const wsUrl = apiUrl.replace(/^http/, 'ws');
-    
-    const ws = new WebSocket(`${wsUrl}/api/attach?containerId=${containerId}&shell=${encodeURIComponent(shell)}${isSidecar ? '&sidecar=true' : ''}`);
-    wsRef.current = ws;
+		term.open(terminalRef.current);
+		fitAddon.fit();
+		termInstance.current = term;
 
-    ws.onopen = () => {
-      term.writeln(`\x1b[32mConnected to ${containerId} via ${shell}\x1b[0m`);
-    };
+		// Handle resize
+		const handleResize = () => {
+			fitAddon.fit();
+		};
+		window.addEventListener("resize", handleResize);
 
-    ws.onmessage = (event) => {
-      term.write(event.data);
-    };
+		// Connect WebSocket
+		// If backend is running on port 3000 during dev, we use that
+		const apiUrl = import.meta.env.VITE_API_URL || `http://localhost:3000`;
+		const wsUrl = apiUrl.replace(/^http/, "ws");
 
-    ws.onclose = () => {
-      term.writeln('\r\n\x1b[31mConnection closed.\x1b[0m');
-      // Intentionally not calling onDisconnect() here so the terminal output remains visible on error or close.
-    };
+		const ws = new WebSocket(
+			`${wsUrl}/api/attach?containerId=${containerId}&shell=${encodeURIComponent(shell)}${isSidecar ? "&sidecar=true" : ""}`,
+		);
+		wsRef.current = ws;
 
-    ws.onerror = (error) => {
-      term.writeln(`\r\n\x1b[31mWebSocket error: ${error}\x1b[0m`);
-    };
+		ws.onopen = () => {
+			term.writeln(`\x1b[32mConnected to ${containerId} via ${shell}\x1b[0m`);
+		};
 
-    // Handle input
-    term.onData((data: string) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(data);
-      }
-    });
+		ws.onmessage = (event) => {
+			term.write(event.data);
+		};
 
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-      term.dispose();
-    };
-  }, [containerId, shell, onDisconnect]);
+		ws.onclose = () => {
+			term.writeln("\r\n\x1b[31mConnection closed.\x1b[0m");
+			// Intentionally not calling onDisconnect() here so the terminal output remains visible on error or close.
+		};
 
-  return <div ref={terminalRef} className="w-full h-full overflow-hidden" />;
+		ws.onerror = (error) => {
+			term.writeln(`\r\n\x1b[31mWebSocket error: ${error}\x1b[0m`);
+		};
+
+		// Handle input
+		term.onData((data: string) => {
+			if (ws.readyState === WebSocket.OPEN) {
+				ws.send(data);
+			}
+		});
+
+		return () => {
+			window.removeEventListener("resize", handleResize);
+			if (ws.readyState === WebSocket.OPEN) {
+				ws.close();
+			}
+			term.dispose();
+		};
+	}, [containerId, shell, isSidecar]);
+
+	return <div ref={terminalRef} className="w-full h-full overflow-hidden" />;
 }
