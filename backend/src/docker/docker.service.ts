@@ -629,13 +629,24 @@ exec sh -i
 
 			// --- Step 7: Create image nodes ---
 			const imageList = images || [];
-			const imageYUsed: number[] = [];
 
 			// Keep track of which images are used by containers to only display those
 			const usedImageIds = new Set<string>();
 			containers.forEach((c) => {
 				if (c.ImageID) usedImageIds.add(c.ImageID);
 			});
+
+			imageList.sort((a: any, b: any) => {
+				const aUsed = usedImageIds.has(a.Id) ? 1 : 0;
+				const bUsed = usedImageIds.has(b.Id) ? 1 : 0;
+				return bUsed - aUsed; // Used before unused
+			});
+
+			let maxGlobalY = 0;
+			nodes.forEach((n) => {
+				if (n.position.y > maxGlobalY) maxGlobalY = n.position.y;
+			});
+			let nextUnusedImageY = maxGlobalY + ROW_GAP;
 
 			imageList.forEach((img: any) => {
 				// Filter out unused images to reduce clutter, or images with no tags
@@ -672,13 +683,9 @@ exec sh -i
 					const maxY = Math.max(...connectedContainerYs);
 					imgY = (minY + maxY) / 2;
 				} else {
-					imgY =
-						imageYUsed.length > 0
-							? Math.max(...imageYUsed) + ROW_GAP
-							: currentY;
-					currentY += ROW_GAP;
+					imgY = nextUnusedImageY;
+					nextUnusedImageY += ROW_GAP;
 				}
-				imageYUsed.push(imgY);
 
 				// Best effort label
 				const repoTags = img.RepoTags || [];

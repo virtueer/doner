@@ -194,7 +194,24 @@ function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
 
 	// Image positions: centered on their connected containers
 	const imagePositions = new Map<string, { x: number; y: number }>();
-	let fallbackImgY = currentY;
+
+	images.sort((a, b) => {
+		const aUsed = (imgToContainers.get(a.id) || []).length > 0 ? 1 : 0;
+		const bUsed = (imgToContainers.get(b.id) || []).length > 0 ? 1 : 0;
+		return bUsed - aUsed;
+	});
+
+	let maxGlobalY = 0;
+	containerPositions.forEach((p) => {
+		if (p.y > maxGlobalY) maxGlobalY = p.y;
+	});
+	networkPositions.forEach((p) => {
+		if (p.y > maxGlobalY) maxGlobalY = p.y;
+	});
+	volumePositions.forEach((p) => {
+		if (p.y > maxGlobalY) maxGlobalY = p.y;
+	});
+	let fallbackImgY = maxGlobalY + ROW_GAP;
 
 	images.forEach((img) => {
 		const connectedIds = imgToContainers.get(img.id) || [];
@@ -397,20 +414,44 @@ function Flow() {
 
 	const [isSearchFocused, setIsSearchFocused] = useState(false);
 	const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
+	const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+	useEffect(() => {
+		if (isSearchFocused) {
+			try {
+				const recent = JSON.parse(
+					localStorage.getItem("recent-searches") || "[]",
+				);
+				setRecentSearches(recent);
+			} catch (_e) {}
+		}
+	}, [isSearchFocused]);
 
 	const matchedNodes = useMemo(() => {
-		if (!searchQuery.trim()) return [];
+		if (!searchQuery.trim()) {
+			return recentSearches
+				.map((id) => nodes.find((n) => n.id === id))
+				.filter(Boolean) as Node[];
+		}
 		const q = searchQuery.toLowerCase();
 		return nodes.filter((n) =>
 			(n.data?.label as string)?.toLowerCase().includes(q),
 		);
-	}, [nodes, searchQuery]);
+	}, [nodes, searchQuery, recentSearches]);
 
 	useEffect(() => {
 		setSearchSelectedIndex(0);
 	}, []);
 
 	const handleSearchSelect = (nodeId: string) => {
+		const recent = JSON.parse(localStorage.getItem("recent-searches") || "[]");
+		const newRecent = [
+			nodeId,
+			...recent.filter((id: string) => id !== nodeId),
+		].slice(0, 5);
+		localStorage.setItem("recent-searches", JSON.stringify(newRecent));
+		setRecentSearches(newRecent);
+
 		const node = getNode(nodeId);
 		if (node?.position) {
 			setCenter(node.position.x + 150, node.position.y + 100, {
@@ -698,7 +739,7 @@ function Flow() {
 							onFocus={() => setIsSearchFocused(true)}
 							onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
 							onKeyDown={handleSearchKeyDown}
-							className="pl-9 pr-4 py-2.5 bg-card/95 backdrop-blur-md border border-white/20 rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary w-64 transition-all"
+							className="pl-9 pr-4 py-2.5 bg-card/95 backdrop-blur-md border border-white/30 rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary w-64 transition-all shadow-[0_4px_20px_rgba(0,0,0,0.5)] ring-1 ring-white/10"
 						/>
 						{isSearchFocused && matchedNodes.length > 0 && (
 							<div className="absolute top-full left-0 w-full mt-1 z-50 bg-card/95 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg overflow-hidden max-h-64 overflow-y-auto">
@@ -758,7 +799,7 @@ function Flow() {
 				{/* Floating toolbar top-right */}
 				<Panel
 					position="top-right"
-					className="flex items-center gap-2 m-4 bg-card/95 backdrop-blur-md p-1.5 rounded-xl border border-white/20 shadow-2xl"
+					className="flex items-center gap-2 m-4 bg-card/95 backdrop-blur-md p-1.5 rounded-xl border border-white/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)] ring-1 ring-white/10"
 				>
 					{loading && (
 						<span className="text-xs text-muted-foreground animate-pulse px-2 py-1 rounded">
