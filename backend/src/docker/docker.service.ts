@@ -642,11 +642,7 @@ exec sh -i
 				return bUsed - aUsed; // Used before unused
 			});
 
-			let maxGlobalY = 0;
-			nodes.forEach((n) => {
-				if (n.position.y > maxGlobalY) maxGlobalY = n.position.y;
-			});
-			let nextUnusedImageY = maxGlobalY + ROW_GAP;
+			let unusedImgY = 0;
 
 			imageList.forEach((img: any) => {
 				// Filter out unused images to reduce clutter, or images with no tags
@@ -678,13 +674,16 @@ exec sh -i
 				});
 
 				let imgY: number;
+				let imgX = COL_IMG;
+
 				if (connectedContainerYs.length > 0) {
 					const minY = Math.min(...connectedContainerYs);
 					const maxY = Math.max(...connectedContainerYs);
 					imgY = (minY + maxY) / 2;
 				} else {
-					imgY = nextUnusedImageY;
-					nextUnusedImageY += ROW_GAP;
+					imgX = COL_IMG - 320;
+					imgY = unusedImgY;
+					unusedImgY += ROW_GAP;
 				}
 
 				// Best effort label
@@ -703,7 +702,7 @@ exec sh -i
 						created: img.Created,
 						isUsed: usedImageIds.has(img.Id),
 					},
-					position: { x: COL_IMG, y: imgY },
+					position: { x: imgX, y: imgY },
 				});
 			});
 

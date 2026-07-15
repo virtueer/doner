@@ -201,17 +201,7 @@ function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
 		return bUsed - aUsed;
 	});
 
-	let maxGlobalY = 0;
-	containerPositions.forEach((p) => {
-		if (p.y > maxGlobalY) maxGlobalY = p.y;
-	});
-	networkPositions.forEach((p) => {
-		if (p.y > maxGlobalY) maxGlobalY = p.y;
-	});
-	volumePositions.forEach((p) => {
-		if (p.y > maxGlobalY) maxGlobalY = p.y;
-	});
-	let fallbackImgY = maxGlobalY + ROW_GAP;
+	let unusedImgY = 0;
 
 	images.forEach((img) => {
 		const connectedIds = imgToContainers.get(img.id) || [];
@@ -226,8 +216,9 @@ function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
 				return;
 			}
 		}
-		imagePositions.set(img.id, { x: COL_IMAGE, y: fallbackImgY });
-		fallbackImgY += ROW_GAP;
+		// Unused image
+		imagePositions.set(img.id, { x: COL_IMAGE - 320, y: unusedImgY });
+		unusedImgY += ROW_GAP;
 	});
 
 	// Collect all tentative positions
