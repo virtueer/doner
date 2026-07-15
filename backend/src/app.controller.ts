@@ -8,7 +8,7 @@ import {
 	Req,
 	Res,
 } from "@nestjs/common";
-import type { DockerService } from "./docker/docker.service";
+import { DockerService } from "./docker/docker.service";
 
 @Controller("api")
 export class AppController {
