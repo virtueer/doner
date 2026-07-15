@@ -537,7 +537,11 @@ function Flow() {
 				// Resolve overlaps so new nodes (not locked) slide into nice spots automatically
 				return resolveOverlaps(resolvedNodes, lockedIds);
 			});
-			setEdges(data.edges.filter((e: any) => e.sourceHandle !== "img-out"));
+			setEdges(
+				data.edges.map((e: any) =>
+					e.sourceHandle === "img-out" ? { ...e, hidden: true } : e,
+				),
+			);
 			setError(null);
 		} catch (err: any) {
 			setError(err.message);

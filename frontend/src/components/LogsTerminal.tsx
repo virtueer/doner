@@ -11,6 +11,7 @@ export function LogsTerminal({
 	containerName,
 }: LogsTerminalProps) {
 	const [logs, setLogs] = useState<string[]>([]);
+	const [showTimestamps, setShowTimestamps] = useState(true);
 	const logsEndRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -50,8 +51,16 @@ export function LogsTerminal({
 	return (
 		<div className="h-screen w-screen bg-[#0c0c0c] text-green-400 flex flex-col font-mono text-sm">
 			{/* Prompt */}
-			<div className="px-4 py-2 text-green-700 text-xs border-b border-green-900/20 font-bold">
-				$ docker logs -f {containerName}
+			<div className="flex items-center justify-between px-4 py-2 border-b border-green-900/20 bg-[#1a1a1a]">
+				<div className="text-green-700 text-xs font-bold">
+					$ docker logs -f {containerName}
+				</div>
+				<button
+					onClick={() => setShowTimestamps(!showTimestamps)}
+					className="text-xs text-green-600 hover:text-green-500 bg-transparent border border-green-800 rounded px-2 py-1 transition-colors"
+				>
+					{showTimestamps ? "Hide Timestamps" : "Show Timestamps"}
+				</button>
 			</div>
 
 			{/* Logs */}
@@ -75,7 +84,7 @@ export function LogsTerminal({
 							key={i}
 							className="whitespace-pre-wrap break-all leading-relaxed text-green-400/90 flex gap-3"
 						>
-							{timestamp && (
+							{timestamp && showTimestamps && (
 								<span className="shrink-0 text-green-700/80 select-none">
 									{timestamp}
 								</span>
