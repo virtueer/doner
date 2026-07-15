@@ -10,19 +10,25 @@ export function ImageNode({ data }: { data: any }) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const isUsed = data.isUsed !== false; // Default to true if missing
+  const bgColor = isUsed ? 'bg-pink-500/10' : 'bg-slate-500/10';
+  const iconBgColor = isUsed ? 'bg-pink-500/20 text-pink-500 group-hover:bg-pink-500/30' : 'bg-slate-500/20 text-slate-500 group-hover:bg-slate-500/30';
+  const handleBg = isUsed ? 'bg-pink-500 hover:bg-pink-400' : 'bg-slate-500 hover:bg-slate-400';
+  const borderHover = isUsed ? 'hover:border-pink-500/50' : 'hover:border-slate-500/50';
+
   return (
-    <div className="w-[250px] shadow-lg rounded-xl bg-card border border-border/50 overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-pink-500/50 group cursor-pointer backdrop-blur-sm">
+    <div className={`w-[250px] shadow-lg rounded-xl bg-card border border-border/50 overflow-hidden transition-all duration-300 hover:shadow-xl ${borderHover} group cursor-pointer backdrop-blur-sm`}>
       <div className="flex flex-col">
         {/* Header */}
-        <div className="flex items-center gap-3 p-3 bg-pink-500/10 border-b border-border/50">
-          <div className="p-2 bg-pink-500/20 rounded-lg text-pink-500 group-hover:scale-110 group-hover:bg-pink-500/30 transition-all duration-300">
+        <div className={`flex items-center gap-3 p-3 ${bgColor} border-b border-border/50`}>
+          <div className={`p-2 rounded-lg group-hover:scale-110 transition-all duration-300 ${iconBgColor}`}>
             <Layers className="w-4 h-4" />
           </div>
           <div className="flex flex-col flex-1 min-w-0">
-            <div className="text-sm font-semibold text-foreground truncate" title={data.label}>
+            <div className="text-sm font-semibold text-foreground break-words whitespace-normal leading-tight" title={data.label}>
               {data.label}
             </div>
-            <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+            <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">
               Docker Image
             </div>
           </div>
@@ -49,7 +55,7 @@ export function ImageNode({ data }: { data: any }) {
         type="source"
         position={Position.Right}
         id="img-out"
-        className="w-3 h-3 bg-pink-500 border-2 border-background translate-x-1.5 transition-transform hover:scale-125 hover:bg-pink-400"
+        className={`w-3 h-3 ${handleBg} border-2 border-background translate-x-1.5 transition-transform hover:scale-125`}
       />
     </div>
   );

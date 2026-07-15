@@ -269,6 +269,9 @@ function resolveOverlaps(nodes: Node[], lockedIds: Set<string> = new Set()): Nod
               n1.position.x += pushX * 2 * sign;
             } else if (n1Locked && !n2Locked) {
               n2.position.x -= pushX * 2 * sign;
+            } else {
+              n1.position.x += pushX * sign;
+              n2.position.x -= pushX * sign;
             }
           } else {
             const pushY = (overlapY / 2) + 2;
@@ -284,6 +287,9 @@ function resolveOverlaps(nodes: Node[], lockedIds: Set<string> = new Set()): Nod
               n1.position.y += pushY * 2 * sign;
             } else if (n1Locked && !n2Locked) {
               n2.position.y -= pushY * 2 * sign;
+            } else {
+              n1.position.y += pushY * sign;
+              n2.position.y -= pushY * sign;
             }
           }
         }

@@ -92,6 +92,7 @@ export class AppController {
     if (type === 'containerNode') return this.dockerService.inspectContainer(id);
     if (type === 'networkNode') return this.dockerService.inspectNetwork(id);
     if (type === 'volumeNode') return this.dockerService.inspectVolume(id);
+    if (type === 'imageNode') return this.dockerService.inspectImage(id);
     throw new Error('Invalid node type');
   }
 

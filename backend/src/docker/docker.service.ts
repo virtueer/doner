@@ -154,6 +154,10 @@ export class DockerService implements OnModuleDestroy {
     return this.docker.getVolume(name).inspect();
   }
 
+  async inspectImage(id: string) {
+    return this.docker.getImage(id).inspect();
+  }
+
   async attachToContainer(containerId: string, shell: string) {
     const container = this.docker.getContainer(containerId);
     
@@ -663,6 +667,7 @@ exec sh -i
             label: label,
             size: img.Size,
             created: img.Created,
+            isUsed: usedImageIds.has(img.Id),
           },
           position: { x: COL_IMG, y: imgY },
         });
