@@ -10,6 +10,7 @@ import {
 	Play,
 	Search,
 	Terminal,
+	Trash2,
 	X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -190,9 +191,62 @@ export function NodeDetailsSheet({
 		isOpen: boolean;
 		title: string;
 		message: string;
-		onConfirm: () => void;
+		isDeleteStep2?: boolean;
+		showForceOption?: boolean;
+		onConfirm: (force?: boolean) => void;
 		onCancel: () => void;
 	} | null>(null);
+
+	const [forceCheck, setForceCheck] = useState(false);
+	const [deleteLoading, setDeleteLoading] = useState(false);
+
+	const handleDeleteClick = () => {
+		const isContainerOrImage = isContainer || nodeType === "imageNode";
+		setConfirmDialog({
+			isOpen: true,
+			title: `Delete ${nodeType.replace("Node", "")}`,
+			message:
+				"Are you sure you want to delete this resource? This is step 1 of 2.",
+			onConfirm: () => {
+				setForceCheck(false);
+				setConfirmDialog({
+					isOpen: true,
+					title: "Final Warning",
+					message:
+						"Are you ABSOLUTELY sure? This action is permanent and cannot be undone.",
+					isDeleteStep2: true,
+					showForceOption: isContainerOrImage,
+					onConfirm: async (force) => {
+						try {
+							setDeleteLoading(true);
+							const apiUrl =
+								import.meta.env.VITE_API_URL || "http://localhost:3000";
+							const res = await fetch(
+								`${apiUrl}/api/delete/${nodeType}/${encodeURIComponent(rawId)}${force ? "?force=true" : ""}`,
+								{
+									method: "DELETE",
+								},
+							);
+							if (!res.ok) {
+								const err = await res.json().catch(() => ({}));
+								throw new Error(err.message || "Deletion failed");
+							}
+							setConfirmDialog(null);
+							onClose();
+						} catch (err: any) {
+							console.error("Delete failed:", err);
+							alert(`Delete failed: ${err.message}`);
+							setConfirmDialog(null);
+						} finally {
+							setDeleteLoading(false);
+						}
+					},
+					onCancel: () => setConfirmDialog(null),
+				});
+			},
+			onCancel: () => setConfirmDialog(null),
+		});
+	};
 
 	const [copiedJson, setCopiedJson] = useState(false);
 	const handleCopyJson = () => {
@@ -511,6 +565,14 @@ export function NodeDetailsSheet({
 								</div>
 							)}
 							<button
+								onClick={handleDeleteClick}
+								disabled={deleteLoading}
+								className="p-2 ml-2 mr-2 rounded-md hover:bg-red-500/20 text-red-500/70 hover:text-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+								title="Delete Resource"
+							>
+								{deleteLoading ? "..." : <Trash2 className="h-5 w-5" />}
+							</button>
+							<button
 								onClick={handleClose}
 								className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
 							>
@@ -763,7 +825,9 @@ export function NodeDetailsSheet({
 						onClick={(e) => e.stopPropagation()}
 					>
 						<div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
-							<h3 className="text-base font-medium text-white/90">
+							<h3
+								className={`text-base font-medium ${confirmDialog.isDeleteStep2 ? "text-red-500" : "text-white/90"}`}
+							>
 								{confirmDialog.title}
 							</h3>
 							<button
@@ -774,9 +838,22 @@ export function NodeDetailsSheet({
 							</button>
 						</div>
 						<div className="px-5 py-5">
-							<p className="text-sm text-white/70 mb-4">
+							<p
+								className={`text-sm ${confirmDialog.showForceOption ? "mb-4" : ""} ${confirmDialog.isDeleteStep2 ? "text-red-400 font-medium" : "text-white/70"}`}
+							>
 								{confirmDialog.message}
 							</p>
+							{confirmDialog.showForceOption && (
+								<label className="flex items-center gap-2 mt-4 text-sm text-white/80 cursor-pointer w-fit">
+									<input
+										type="checkbox"
+										checked={forceCheck}
+										onChange={(e) => setForceCheck(e.target.checked)}
+										className="rounded border-white/20 bg-black/20 text-red-500 focus:ring-red-500/50"
+									/>
+									Force delete (even if running/used)
+								</label>
+							)}
 						</div>
 						<div className="px-5 py-4 bg-[#151515] flex items-center justify-end gap-3 border-t border-white/10">
 							<button
@@ -786,10 +863,10 @@ export function NodeDetailsSheet({
 								Cancel
 							</button>
 							<button
-								onClick={confirmDialog.onConfirm}
-								className="px-4 py-2 text-sm font-medium bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+								onClick={() => confirmDialog.onConfirm(forceCheck)}
+								className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${confirmDialog.isDeleteStep2 ? "bg-red-500 hover:bg-red-600 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"}`}
 							>
-								Confirm
+								{confirmDialog.isDeleteStep2 ? "Yes, DELETE it" : "Confirm"}
 							</button>
 						</div>
 					</div>

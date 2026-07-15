@@ -1064,4 +1064,20 @@ exec sh -i
 			throw new Error(`Failed to export volume: ${err.message}`);
 		}
 	}
+
+	async deleteContainer(id: string, force = false) {
+		return this.docker.getContainer(id).remove({ force });
+	}
+
+	async deleteImage(id: string, force = false) {
+		return this.docker.getImage(id).remove({ force });
+	}
+
+	async deleteNetwork(id: string) {
+		return this.docker.getNetwork(id).remove();
+	}
+
+	async deleteVolume(name: string) {
+		return this.docker.getVolume(name).remove();
+	}
 }

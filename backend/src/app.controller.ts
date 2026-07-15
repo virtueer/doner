@@ -1,6 +1,7 @@
 import {
 	Body,
 	Controller,
+	Delete,
 	Get,
 	Param,
 	Post,
@@ -115,6 +116,27 @@ export class AppController {
 		if (type === "volumeNode") return this.dockerService.inspectVolume(id);
 		if (type === "imageNode") return this.dockerService.inspectImage(id);
 		throw new Error("Invalid node type");
+	}
+
+	@Delete("delete/:type/:id")
+	async deleteNode(
+		@Param("type") type: string,
+		@Param("id") id: string,
+		@Query("force") force?: string,
+	) {
+		const isForce = force === "true";
+		if (type === "containerNode") {
+			await this.dockerService.deleteContainer(id, isForce);
+		} else if (type === "networkNode") {
+			await this.dockerService.deleteNetwork(id);
+		} else if (type === "volumeNode") {
+			await this.dockerService.deleteVolume(id);
+		} else if (type === "imageNode") {
+			await this.dockerService.deleteImage(id, isForce);
+		} else {
+			throw new Error("Invalid node type");
+		}
+		return { success: true };
 	}
 
 	@Get("volumes/:name/files")
