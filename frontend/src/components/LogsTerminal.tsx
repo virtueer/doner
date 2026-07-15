@@ -59,14 +59,31 @@ export function LogsTerminal({
 				{logs.length === 0 && (
 					<div className="text-green-800 italic">Waiting for logs...</div>
 				)}
-				{logs.map((line, i) => (
-					<div
-						key={i}
-						className="whitespace-pre-wrap break-all leading-relaxed text-green-400/90"
-					>
-						{renderAnsiLine(line)}
-					</div>
-				))}
+				{logs.map((line, i) => {
+					const spaceIdx = line.indexOf(" ");
+					let timestamp = "";
+					let content = line;
+					if (spaceIdx > 10 && spaceIdx <= 35) {
+						const possibleTs = line.substring(0, spaceIdx);
+						if (/^\d{4}-\d{2}-\d{2}T/.test(possibleTs)) {
+							timestamp = possibleTs;
+							content = line.substring(spaceIdx + 1);
+						}
+					}
+					return (
+						<div
+							key={i}
+							className="whitespace-pre-wrap break-all leading-relaxed text-green-400/90 flex gap-3"
+						>
+							{timestamp && (
+								<span className="shrink-0 text-green-700/80 select-none">
+									{timestamp}
+								</span>
+							)}
+							<span className="flex-1">{renderAnsiLine(content)}</span>
+						</div>
+					);
+				})}
 				<div ref={logsEndRef} />
 			</div>
 		</div>
