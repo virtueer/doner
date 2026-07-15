@@ -1,3 +1,4 @@
+import { Editor } from "@monaco-editor/react";
 import {
 	ArrowLeft,
 	ClipboardPaste,
@@ -16,6 +17,31 @@ import {
 	X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+
+const getLanguageFromExtension = (filename: string) => {
+	const ext = filename.split(".").pop()?.toLowerCase() || "";
+	const map: Record<string, string> = {
+		js: "javascript",
+		jsx: "javascript",
+		ts: "typescript",
+		tsx: "typescript",
+		json: "json",
+		html: "html",
+		css: "css",
+		md: "markdown",
+		yaml: "yaml",
+		yml: "yaml",
+		sh: "shell",
+		bash: "shell",
+		py: "python",
+		go: "go",
+		rs: "rust",
+		c: "c",
+		cpp: "cpp",
+		java: "java",
+	};
+	return map[ext] || "plaintext";
+};
 
 let globalClipboard: {
 	apiPrefix: string;
@@ -47,6 +73,7 @@ export function FileBrowser({
 	const [viewFile, setViewFile] = useState<string | null>(null);
 	const [viewFilePath, setViewFilePath] = useState<string | null>(null);
 	const [fileContent, setFileContent] = useState<string>("");
+	const [selectedLanguage, setSelectedLanguage] = useState("plaintext");
 	const [fileLoading, setFileLoading] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
 	const [editContent, setEditContent] = useState("");
@@ -189,6 +216,7 @@ export function FileBrowser({
 				const data = await res.json();
 				setFileContent(data.content);
 				setEditContent(data.content);
+				setSelectedLanguage(getLanguageFromExtension(file.name));
 			} catch (err: any) {
 				setFileContent(`Error: ${err.message}`);
 			} finally {
@@ -522,9 +550,38 @@ export function FileBrowser({
 						onClick={(e) => e.stopPropagation()}
 					>
 						<div className="px-4 py-2 bg-black/20 border-b border-white/5 flex items-center justify-between shrink-0">
-							<span className="text-sm font-mono text-white/90 truncate">
-								{viewFile}
-							</span>
+							<div className="flex items-center gap-4">
+								<span className="text-sm font-mono text-white/90 truncate">
+									{viewFile}
+								</span>
+								<select
+									value={selectedLanguage}
+									onChange={(e) => setSelectedLanguage(e.target.value)}
+									className="bg-[#121212] text-xs text-white/80 border border-white/10 rounded px-2 py-1 focus:outline-none focus:border-blue-500/50"
+								>
+									{[
+										"javascript",
+										"typescript",
+										"json",
+										"html",
+										"css",
+										"markdown",
+										"yaml",
+										"shell",
+										"python",
+										"go",
+										"rust",
+										"c",
+										"cpp",
+										"java",
+										"plaintext",
+									].map((lang) => (
+										<option key={lang} value={lang}>
+											{lang}
+										</option>
+									))}
+								</select>
+							</div>
 							<div className="flex items-center gap-2">
 								{!fileLoading && !isEditing && (
 									<button
@@ -568,19 +625,22 @@ export function FileBrowser({
 								<div className="text-white/50 text-sm animate-pulse">
 									Loading content...
 								</div>
-							) : isEditing ? (
-								<textarea
-									className="flex-1 w-full bg-[#121212] border border-white/10 rounded p-3 text-xs font-mono text-green-400 focus:outline-none focus:border-blue-500/50 resize-none"
-									value={editContent}
-									onChange={(e) => setEditContent(e.target.value)}
-									spellCheck={false}
-								/>
 							) : (
-								<pre className="text-xs font-mono text-green-400 whitespace-pre-wrap break-all">
-									{fileContent || (
-										<span className="text-white/30 italic">Empty file</span>
-									)}
-								</pre>
+								<Editor
+									height="100%"
+									language={selectedLanguage}
+									theme="vs-dark"
+									value={isEditing ? editContent : fileContent}
+									onChange={(val) => {
+										if (isEditing) setEditContent(val || "");
+									}}
+									options={{
+										readOnly: !isEditing,
+										minimap: { enabled: false },
+										fontSize: 12,
+										wordWrap: "on",
+									}}
+								/>
 							)}
 						</div>
 					</div>

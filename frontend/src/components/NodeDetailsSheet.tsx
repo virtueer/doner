@@ -26,6 +26,7 @@ function ContainerLogs({
 	containerName: string;
 }) {
 	const [logs, setLogs] = useState<string[]>([]);
+	const [showTimestamps, setShowTimestamps] = useState(true);
 	const logsEndRef = useRef<HTMLDivElement>(null);
 	const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -74,13 +75,21 @@ function ContainerLogs({
 				<div className="text-green-700 text-xs font-mono">
 					$ docker logs -f {containerName}
 				</div>
-				<button
-					onClick={openTerminalTab}
-					className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition-colors"
-				>
-					<ExternalLink className="h-3 w-3" />
-					Open in new tab
-				</button>
+				<div className="flex items-center gap-2">
+					<button
+						onClick={() => setShowTimestamps(!showTimestamps)}
+						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-green-800 text-green-600 hover:text-green-500 hover:bg-white/5 transition-colors"
+					>
+						{showTimestamps ? "Hide Timestamps" : "Show Timestamps"}
+					</button>
+					<button
+						onClick={openTerminalTab}
+						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition-colors"
+					>
+						<ExternalLink className="h-3 w-3" />
+						Open in new tab
+					</button>
+				</div>
 			</div>
 			<div className="flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed">
 				{logs.length === 0 && (
@@ -102,7 +111,7 @@ function ContainerLogs({
 							key={i}
 							className="whitespace-pre-wrap break-all text-green-400/90 flex gap-3"
 						>
-							{timestamp && (
+							{timestamp && showTimestamps && (
 								<span className="shrink-0 text-green-700/80 select-none">
 									{timestamp}
 								</span>
