@@ -1,4 +1,3 @@
-import { Handle, Position } from '@xyflow/react';
 import { Layers } from 'lucide-react';
 
 export function ImageNode({ data }: { data: any }) {
@@ -66,18 +65,6 @@ export function ImageNode({ data }: { data: any }) {
           </div>
         </div>
       </div>
-
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="img-out"
-        className="!w-3 !h-3 !-right-1.5"
-        style={{
-          backgroundColor: isUsed ? '#f472b6' : '#94a3b8',
-          borderWidth: '2px',
-          borderColor: 'rgba(10, 10, 20, 0.8)',
-        }}
-      />
     </div>
   );
 }
