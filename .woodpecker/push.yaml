@@ -1,5 +1,7 @@
 when:
   - event: [push]
+    path:
+      include: [ "frontend/**", "backend/**" ]
 
 steps:
   - name: frontend-deploy
