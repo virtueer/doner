@@ -28,6 +28,9 @@
 				"noExplicitAny": "off",
 				"noArrayIndexKey": "off"
 			},
+			"style": {
+				"useImportType": "off"
+			},
 			"a11y": {
 				"useKeyWithClickEvents": "off",
 				"useButtonType": "off",

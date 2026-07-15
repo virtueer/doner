@@ -6,7 +6,7 @@ import {
 	WebSocketServer,
 } from "@nestjs/websockets";
 import type { Server, WebSocket } from "ws";
-import type { DockerService } from "./docker.service";
+import { DockerService } from "./docker.service";
 
 @WebSocketGateway({ path: "/api/attach" })
 export class DockerGateway implements OnGatewayConnection, OnGatewayDisconnect {
