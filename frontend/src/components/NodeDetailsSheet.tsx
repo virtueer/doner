@@ -215,7 +215,7 @@ export function NodeDetailsSheet({
 		onClose();
 	}, [hasUnsavedChanges, onClose]);
 
-	const rawId = nodeId.replace(/^(cont-|net-|vol-)/, "");
+	const rawId = nodeId.replace(/^(cont-|net-|vol-|img-)/, "");
 	const isContainer = nodeType === "containerNode";
 	const isVolume = nodeType === "volumeNode";
 
