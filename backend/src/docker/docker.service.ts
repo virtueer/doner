@@ -146,9 +146,7 @@ export class DockerService implements OnModuleDestroy {
 					const lines = message.split("\n");
 					for (const line of lines) {
 						if (line.trim()) {
-							// Strip ANSI escape sequences
-							// biome-ignore lint/suspicious/noControlCharactersInRegex: we need to match ANSI escape sequences
-							yield line.replace(/\x1b\[[0-9;]*m/g, "");
+							yield line;
 						}
 					}
 				}
