@@ -620,6 +620,7 @@ exec sh -i
 						label: vol.Name,
 						driver: vol.Driver,
 						mountpoint: vol.Mountpoint,
+						isUsed: connectedContainerYs.length > 0,
 					},
 					position: { x: COL_VOL, y: volY },
 				});
