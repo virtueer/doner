@@ -355,11 +355,13 @@ exec sh -i
       const networks = await this.docker.listNetworks();
       const containers = await this.docker.listContainers({ all: true });
       const volumes = await this.docker.listVolumes();
+      const images = await this.docker.listImages();
 
       const nodes: any[] = [];
       const edges: any[] = [];
 
       // Layout constants
+      const COL_IMG = -400;
       const COL_NET = 0;
       const COL_CONT = 420;
       const COL_VOL = 880;
@@ -596,6 +598,73 @@ exec sh -i
             mountpoint: vol.Mountpoint,
           },
           position: { x: COL_VOL, y: volY },
+        });
+      });
+
+      // --- Step 7: Create image nodes ---
+      const imageList = images || [];
+      const imageYUsed: number[] = [];
+
+      // Keep track of which images are used by containers to only display those
+      const usedImageIds = new Set<string>();
+      containers.forEach(c => {
+        if (c.ImageID) usedImageIds.add(c.ImageID);
+      });
+
+      imageList.forEach((img: any) => {
+        // Filter out unused images to reduce clutter, or images with no tags
+        if (!usedImageIds.has(img.Id)) {
+          const repoTags = img.RepoTags || [];
+          if (repoTags.length === 0 || repoTags.includes('<none>:<none>')) return;
+        }
+
+        const imgNodeId = `img-${img.Id}`;
+
+        // Find connected containers to compute Y position
+        const connectedContainerYs: number[] = [];
+        containers.forEach((container) => {
+          if (container.ImageID === img.Id) {
+            const y = containerYPositions.get(container.Id);
+            if (y !== undefined) connectedContainerYs.push(y);
+
+            const containerId = `cont-${container.Id}`;
+            edges.push({
+              id: `edge-${imgNodeId}-${containerId}`,
+              source: imgNodeId,
+              sourceHandle: 'img-out',
+              target: containerId,
+              animated: false,
+              style: { stroke: '#ec4899' },
+            });
+          }
+        });
+
+        let imgY: number;
+        if (connectedContainerYs.length > 0) {
+          const minY = Math.min(...connectedContainerYs);
+          const maxY = Math.max(...connectedContainerYs);
+          imgY = (minY + maxY) / 2;
+        } else {
+          imgY = imageYUsed.length > 0 ? Math.max(...imageYUsed) + ROW_GAP : currentY;
+          currentY += ROW_GAP;
+        }
+        imageYUsed.push(imgY);
+
+        // Best effort label
+        const repoTags = img.RepoTags || [];
+        const label = repoTags.length > 0 && !repoTags.includes('<none>:<none>') 
+          ? repoTags[0] 
+          : img.Id.replace('sha256:', '').substring(0, 12);
+
+        nodes.push({
+          id: imgNodeId,
+          type: 'imageNode',
+          data: {
+            label: label,
+            size: img.Size,
+            created: img.Created,
+          },
+          position: { x: COL_IMG, y: imgY },
         });
       });
 

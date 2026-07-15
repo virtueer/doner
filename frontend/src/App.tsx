@@ -13,6 +13,7 @@ import {
   type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { ImageNode } from './components/ImageNode';
 import { NetworkNode } from './components/NetworkNode';
 import { ContainerNode } from './components/ContainerNode';
 import { VolumeNode } from './components/VolumeNode';
@@ -20,13 +21,14 @@ import { NodeDetailsSheet } from './components/NodeDetailsSheet';
 import { LogsTerminal } from './components/LogsTerminal';
 import { AttachScreen } from './components/AttachScreen';
 import { FileBrowser } from './components/FileBrowser';
-import { RefreshCw, Sparkles, Search, Box, Network, Database, CheckCircle2, AlertCircle, Info as InfoIcon } from 'lucide-react';
+import { RefreshCw, Sparkles, Search, Box, Network, Database, Layers, CheckCircle2, AlertCircle, Info as InfoIcon } from 'lucide-react';
 import { toast, subscribeToToasts, type Toast } from './lib/toast';
 
 const nodeTypes = {
   networkNode: NetworkNode,
   containerNode: ContainerNode,
   volumeNode: VolumeNode,
+  imageNode: ImageNode,
 };
 
 /**
@@ -34,19 +36,22 @@ const nodeTypes = {
  * Groups containers by their primary network so edges stay short.
  */
 function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
+  const images = nodes.filter((n) => n.type === 'imageNode');
   const networks = nodes.filter((n) => n.type === 'networkNode');
   const containers = nodes.filter((n) => n.type === 'containerNode');
   const volumes = nodes.filter((n) => n.type === 'volumeNode');
 
+  const COL_IMAGE = -400;
   const COL_NETWORK = 0;
-  const COL_CONTAINER = 500;
-  const COL_VOLUME = 1000;
-  const ROW_GAP = 200;
-  const GROUP_GAP = 100;
+  const COL_CONTAINER = 420;
+  const COL_VOLUME = 880;
+  const ROW_GAP = 140;
+  const GROUP_GAP = 60;
 
-  // Build maps: network -> containers, container -> volumes
+  // Build maps: network -> containers, container -> volumes, image -> containers
   const netToContainers = new Map<string, string[]>();
   const contToVolumes = new Map<string, string[]>();
+  const imgToContainers = new Map<string, string[]>();
 
   edges.forEach((e) => {
     if (e.sourceHandle === 'net-out') {
@@ -58,6 +63,11 @@ function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
       const arr = contToVolumes.get(e.source) || [];
       arr.push(e.target);
       contToVolumes.set(e.source, arr);
+    }
+    if (e.sourceHandle === 'img-out') {
+      const arr = imgToContainers.get(e.source) || [];
+      arr.push(e.target);
+      imgToContainers.set(e.source, arr);
     }
   });
 
@@ -152,7 +162,7 @@ function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
       const maxY = Math.max(...connectedContYs);
       let targetY = (minY + maxY) / 2;
 
-      // Prevent overlapping
+      // Prevent overlapping (now also handled by resolveOverlaps but good for initial)
       let overlap = true;
       while (overlap) {
         overlap = false;
@@ -171,15 +181,119 @@ function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
     }
   });
 
-  return nodes.map((node) => {
+  // Image positions: centered on their connected containers
+  const imagePositions = new Map<string, { x: number; y: number }>();
+  let fallbackImgY = currentY;
+
+  images.forEach((img) => {
+    const connectedIds = imgToContainers.get(img.id) || [];
+    if (connectedIds.length > 0) {
+      const ys = connectedIds.map((cId) => containerPositions.get(cId)?.y).filter((y) => y !== undefined) as number[];
+      if (ys.length > 0) {
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        imagePositions.set(img.id, { x: COL_IMAGE, y: (minY + maxY) / 2 });
+        return;
+      }
+    }
+    imagePositions.set(img.id, { x: COL_IMAGE, y: fallbackImgY });
+    fallbackImgY += ROW_GAP;
+  });
+
+  // Collect all tentative positions
+  const posArray = nodes.map(node => {
     const pos =
+      imagePositions.get(node.id) ||
       networkPositions.get(node.id) ||
       containerPositions.get(node.id) ||
       volumePositions.get(node.id) ||
       node.position;
     return { ...node, position: pos };
   });
+
+  return resolveOverlaps(posArray);
 }
+
+/**
+ * Resolves overlaps by pushing nodes away from each other.
+ */
+function resolveOverlaps(nodes: Node[], lockedIds: Set<string> = new Set()): Node[] {
+  const NODE_WIDTH = 260; // Approximate max node width
+  const NODE_HEIGHT = 160; // Approximate max node height
+  const PADDING = 24;
+
+  const newNodes = [...nodes].map(n => ({ ...n, position: { ...n.position } }));
+  let moved = true;
+  let iterations = 0;
+
+  while (moved && iterations < 50) {
+    moved = false;
+    for (let i = 0; i < newNodes.length; i++) {
+      for (let j = i + 1; j < newNodes.length; j++) {
+        const n1 = newNodes[i];
+        const n2 = newNodes[j];
+        if (!n1.position || !n2.position) continue;
+
+        const dx = n1.position.x - n2.position.x;
+        const dy = n1.position.y - n2.position.y;
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+
+        const minDistX = NODE_WIDTH + PADDING;
+        const minDistY = NODE_HEIGHT + PADDING;
+
+        if (absDx < minDistX && absDy < minDistY) {
+          moved = true;
+          // Small random nudge if perfectly overlapping
+          if (dx === 0 && dy === 0) {
+            n1.position.y += Math.random() * 10 - 5;
+            n2.position.y += Math.random() * 10 - 5;
+            continue;
+          }
+
+          const overlapX = minDistX - absDx;
+          const overlapY = minDistY - absDy;
+
+          // Push along the axis of smallest overlap
+          if (overlapX < overlapY) {
+            const pushX = (overlapX / 2) + 2;
+            const sign = dx > 0 ? 1 : -1;
+            
+            const n1Locked = lockedIds.has(n1.id);
+            const n2Locked = lockedIds.has(n2.id);
+
+            if (!n1Locked && !n2Locked) {
+              n1.position.x += pushX * sign;
+              n2.position.x -= pushX * sign;
+            } else if (!n1Locked && n2Locked) {
+              n1.position.x += pushX * 2 * sign;
+            } else if (n1Locked && !n2Locked) {
+              n2.position.x -= pushX * 2 * sign;
+            }
+          } else {
+            const pushY = (overlapY / 2) + 2;
+            const sign = dy > 0 ? 1 : -1;
+
+            const n1Locked = lockedIds.has(n1.id);
+            const n2Locked = lockedIds.has(n2.id);
+
+            if (!n1Locked && !n2Locked) {
+              n1.position.y += pushY * sign;
+              n2.position.y -= pushY * sign;
+            } else if (!n1Locked && n2Locked) {
+              n1.position.y += pushY * 2 * sign;
+            } else if (n1Locked && !n2Locked) {
+              n2.position.y -= pushY * 2 * sign;
+            }
+          }
+        }
+      }
+    }
+    iterations++;
+  }
+  return newNodes;
+}
+
 
 function Flow() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -268,9 +382,12 @@ function Flow() {
 
         const existingNodes = new Map(currentNodes.map((n: any) => [n.id, n]));
 
-        return data.nodes.map((newNode: any) => {
+        const lockedIds = new Set<string>();
+
+        const resolvedNodes = data.nodes.map((newNode: any) => {
           const existing = existingNodes.get(newNode.id) || savedNodes.get(newNode.id);
           if (existing) {
+            lockedIds.add(newNode.id);
             return {
               ...newNode,
               position: existing.position,
@@ -278,6 +395,9 @@ function Flow() {
           }
           return newNode;
         });
+
+        // Resolve overlaps so new nodes (not locked) slide into nice spots automatically
+        return resolveOverlaps(resolvedNodes, lockedIds);
       });
       setEdges(data.edges);
       setError(null);
@@ -471,6 +591,10 @@ function Flow() {
                     Icon = Box;
                     iconColor = n.data?.state === 'running' ? "text-green-500" : "text-slate-400";
                     typeLabel = "Container";
+                  } else if (n.type === 'imageNode') {
+                    Icon = Layers;
+                    iconColor = "text-pink-500";
+                    typeLabel = "Image";
                   }
 
                   return (
