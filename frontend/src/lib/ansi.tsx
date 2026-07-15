@@ -92,7 +92,8 @@ function applyCodes(codes: string[], current: Segment): Segment {
 	while (j < codes.length) {
 		const code = codes[j];
 		if (code === "" || code === "0") {
-			return { text: "" };
+			// Reset all styling but continue processing remaining codes
+			current = { text: current.text };
 		} else if (code === "1") {
 			current.bold = true;
 		} else if (code === "39") {
@@ -126,22 +127,27 @@ export function parseAnsi(text: string): Segment[] {
 	let current: Segment = { text: "" };
 	let lastIdx = 0;
 
-	// Match ANSI escape sequences: \x1b[...m
+	// Match ANSI escape sequences: \x1b[...m  (including bare \x1b[m)
 	// biome-ignore lint/suspicious/noControlCharactersInRegex: we need to match ANSI escape sequences
-	const regex = /\x1b\[\d+(;\d+)*m/g;
+	const regex = /\x1b\[(\d+(?:;\d+)*)?m/g;
 	let match: RegExpExecArray | null;
 
 	// biome-ignore lint/suspicious/noAssignInExpressions: standard regex exec loop
 	while ((match = regex.exec(text)) !== null) {
-		// Push text before the ANSI sequence
+		// Append text before the ANSI sequence to the current segment
 		if (match.index > lastIdx) {
 			current.text += text.slice(lastIdx, match.index);
 		}
 
+		// Flush the current segment before changing styles
+		if (current.text) {
+			segments.push({ ...current });
+		}
+
 		// Extract codes from the match: e.g., "38;5;231"
-		const codeStr = match[0].slice(2, -1); // strip "[...m"
+		const codeStr = match[1] || ""; // group 1, or empty for bare \x1b[m
 		const codes = codeStr.split(";").filter((c) => c !== "");
-		current = applyCodes(codes, current);
+		current = applyCodes(codes, { ...current, text: "" });
 		lastIdx = match.index + match[0].length;
 	}
 
