@@ -108,6 +108,11 @@ export class AppController {
 		return { success: true };
 	}
 
+	@Get("system/df")
+	async getSystemDf() {
+		return this.dockerService.getSystemDf();
+	}
+
 	@Get("inspect/:type/:id")
 	async inspectNode(@Param("type") type: string, @Param("id") id: string) {
 		if (type === "containerNode")

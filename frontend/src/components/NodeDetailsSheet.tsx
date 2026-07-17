@@ -152,6 +152,7 @@ export function NodeDetailsSheet({
 		"none",
 	);
 	const [stats, setStats] = useState<any>(null);
+	const [systemDf, setSystemDf] = useState<any>(null);
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
 	const [sheetWidth, setSheetWidth] = useState(() => window.innerWidth * 0.75);
@@ -350,6 +351,14 @@ export function NodeDetailsSheet({
 				}
 
 				setData(json);
+
+				if (nodeType === "containerNode") {
+					const dfRes = await fetch(`${apiUrl}/api/system/df`);
+					if (dfRes.ok) {
+						const dfJson = await dfRes.json();
+						setSystemDf(dfJson);
+					}
+				}
 			} catch (err: any) {
 				setError(err.message);
 			} finally {
@@ -401,6 +410,15 @@ export function NodeDetailsSheet({
 		const memLimit = stats.memory_stats?.limit || 0;
 		const memPercent = memLimit > 0 ? (memUsage / memLimit) * 100.0 : 0.0;
 
+		let ioRead = 0;
+		let ioWrite = 0;
+		if (stats.blkio_stats?.io_service_bytes_recursive) {
+			for (const stat of stats.blkio_stats.io_service_bytes_recursive) {
+				if (stat.op?.toLowerCase() === "read") ioRead += stat.value;
+				if (stat.op?.toLowerCase() === "write") ioWrite += stat.value;
+			}
+		}
+
 		return (
 			<>
 				<div className="flex items-center gap-1.5 border-l border-white/10 pl-4">
@@ -420,6 +438,16 @@ export function NodeDetailsSheet({
 						{memPercent.toFixed(2)}%
 					</span>
 				</div>
+				<div
+					className="flex items-center gap-1.5 cursor-help"
+					title={`Read: ${formatBytes(ioRead)} / Write: ${formatBytes(ioWrite)}`}
+				>
+					<div className="h-1.5 w-1.5 rounded-full bg-yellow-500 animate-pulse" />
+					<span className="font-semibold text-foreground/80">Disk I/O:</span>
+					<span className="font-mono text-yellow-400">
+						{formatBytes(ioRead)} / {formatBytes(ioWrite)}
+					</span>
+				</div>
 			</>
 		);
 	};
@@ -429,26 +457,89 @@ export function NodeDetailsSheet({
 		if (!data) return null;
 		if (isContainer) {
 			return (
-				<div className="flex flex-wrap items-center gap-4 text-xs mt-2 text-muted-foreground">
-					<div className="flex items-center gap-1">
-						<span className="font-semibold text-foreground/80">ID:</span>{" "}
-						{data.Id?.substring(0, 12)}
+				<div className="flex flex-col gap-2 mt-2 text-xs text-muted-foreground w-full">
+					<div className="flex flex-wrap items-center gap-4">
+						<div className="flex items-center gap-1">
+							<span className="font-semibold text-foreground/80">ID:</span>{" "}
+							{data.Id?.substring(0, 12)}
+						</div>
+						<div className="flex items-center gap-1">
+							<span className="font-semibold text-foreground/80">Image:</span>{" "}
+							{data.Config?.Image}
+						</div>
+						<div className="flex items-center gap-1">
+							<span className="font-semibold text-foreground/80">State:</span>
+							<span
+								className={
+									data.State?.Running ? "text-green-500" : "text-red-500"
+								}
+							>
+								{data.State?.Status}
+							</span>
+						</div>
+						{renderStatsInfo()}
 					</div>
-					<div className="flex items-center gap-1">
-						<span className="font-semibold text-foreground/80">Image:</span>{" "}
-						{data.Config?.Image}
-					</div>
-					<div className="flex items-center gap-1">
-						<span className="font-semibold text-foreground/80">State:</span>
-						<span
-							className={
-								data.State?.Running ? "text-green-500" : "text-red-500"
-							}
-						>
-							{data.State?.Status}
-						</span>
-					</div>
-					{renderStatsInfo()}
+
+					{data.SizeRw !== undefined && (
+						<div className="flex flex-col gap-1 border-t border-white/5 pt-2">
+							<div className="flex flex-wrap gap-4">
+								{data.SizeRootFs !== undefined && (
+									<div
+										className="flex items-center gap-1"
+										title="Underlying image size"
+									>
+										<span className="font-semibold text-foreground/80">
+											Image Size:
+										</span>
+										<span>{formatBytes(data.SizeRootFs - data.SizeRw)}</span>
+									</div>
+								)}
+								<div
+									className="flex items-center gap-1"
+									title="Container's writable layer size"
+								>
+									<span className="font-semibold text-foreground/80">
+										Container Size:
+									</span>
+									<span>{formatBytes(data.SizeRw)}</span>
+								</div>
+							</div>
+
+							{systemDf?.Volumes &&
+								data.Mounts?.filter((m: any) => m.Type === "volume").length >
+									0 && (
+									<div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+										<div className="flex items-center gap-1 w-full text-foreground/80 font-semibold mb-0.5">
+											Volumes:
+										</div>
+										{data.Mounts.filter((m: any) => m.Type === "volume").map(
+											(m: any) => {
+												const volDf = systemDf.Volumes.find(
+													(v: any) => v.Name === m.Name,
+												);
+												const size = volDf?.UsageData?.Size || 0;
+												return (
+													<div
+														key={m.Name}
+														className="flex items-center gap-1 pl-1 border-l border-white/10"
+													>
+														<span
+															className="text-muted-foreground truncate max-w-[150px]"
+															title={m.Name}
+														>
+															{m.Name}
+														</span>
+														<span className="font-mono text-gray-400">
+															{formatBytes(size)}
+														</span>
+													</div>
+												);
+											},
+										)}
+									</div>
+								)}
+						</div>
+					)}
 				</div>
 			);
 		} else if (nodeType === "networkNode") {
