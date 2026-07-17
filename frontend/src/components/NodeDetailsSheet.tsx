@@ -135,11 +135,13 @@ export function NodeDetailsSheet({
 	nodeName,
 	nodeType,
 	onClose,
+	onOpenNode,
 }: {
 	nodeId: string;
 	nodeName: string;
 	nodeType: string;
 	onClose: () => void;
+	onOpenNode?: (id: string, name: string, type: string) => void;
 }) {
 	const [data, setData] = useState<any>(null);
 	const [loading, setLoading] = useState(true);
@@ -352,7 +354,7 @@ export function NodeDetailsSheet({
 
 				setData(json);
 
-				if (nodeType === "containerNode") {
+				if (nodeType === "containerNode" || nodeType === "volumeNode") {
 					fetch(`${apiUrl}/api/system/df`)
 						.then((dfRes) => {
 							if (dfRes.ok) {
@@ -495,17 +497,39 @@ export function NodeDetailsSheet({
 								const sizeRw = dfContainer?.SizeRw;
 								const sizeRootFs = dfContainer?.SizeRootFs;
 
+								const volumes =
+									data.Mounts?.filter((m: any) => m.Type === "volume") || [];
+
 								return (
-									<div className="flex flex-wrap gap-4">
+									<div className="flex flex-wrap items-center gap-x-4 gap-y-2">
 										{sizeRootFs !== undefined && sizeRw !== undefined && (
 											<div
-												className="flex items-center gap-1"
+												className="flex items-center gap-1.5"
 												title="Underlying image size"
 											>
 												<span className="font-semibold text-foreground/80">
-													Image Size:
+													Image:
 												</span>
-												<span>{formatBytes(sizeRootFs - sizeRw)}</span>
+												<div
+													onClick={() => {
+														if (onOpenNode) {
+															onClose();
+															onOpenNode(
+																`img-${data.Image}`,
+																data.Config?.Image || "Image",
+																"imageNode",
+															);
+														}
+													}}
+													className="flex items-center gap-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded cursor-pointer transition-colors"
+												>
+													<span className="truncate max-w-[120px]">
+														{data.Config?.Image || "Image"}
+													</span>
+													<span className="text-[10px] opacity-70">
+														({formatBytes(sizeRootFs - sizeRw)})
+													</span>
+												</div>
 											</div>
 										)}
 										{sizeRw !== undefined && (
@@ -516,46 +540,53 @@ export function NodeDetailsSheet({
 												<span className="font-semibold text-foreground/80">
 													Container Size:
 												</span>
-												<span>{formatBytes(sizeRw)}</span>
+												<span className="text-purple-400">
+													{formatBytes(sizeRw)}
+												</span>
+											</div>
+										)}
+										{volumes.length > 0 && (
+											<div className="flex items-center gap-2">
+												<span className="font-semibold text-foreground/80">
+													Volumes:
+												</span>
+												<div className="flex flex-wrap gap-1.5">
+													{volumes.map((m: any) => {
+														const volDf = systemDf.Volumes?.find(
+															(v: any) => v.Name === m.Name,
+														);
+														const size = volDf?.UsageData?.Size || 0;
+														return (
+															<div
+																key={m.Name}
+																onClick={() => {
+																	if (onOpenNode) {
+																		onClose();
+																		onOpenNode(
+																			`vol-${m.Name}`,
+																			m.Name,
+																			"volumeNode",
+																		);
+																	}
+																}}
+																className="flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded cursor-pointer transition-colors"
+																title={m.Name}
+															>
+																<span className="truncate max-w-[100px]">
+																	{m.Name}
+																</span>
+																<span className="text-[10px] opacity-70">
+																	({formatBytes(size)})
+																</span>
+															</div>
+														);
+													})}
+												</div>
 											</div>
 										)}
 									</div>
 								);
 							})()}
-
-							{systemDf?.Volumes &&
-								data.Mounts?.filter((m: any) => m.Type === "volume").length >
-									0 && (
-									<div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
-										<div className="flex items-center gap-1 w-full text-foreground/80 font-semibold mb-0.5">
-											Volumes:
-										</div>
-										{data.Mounts.filter((m: any) => m.Type === "volume").map(
-											(m: any) => {
-												const volDf = systemDf.Volumes.find(
-													(v: any) => v.Name === m.Name,
-												);
-												const size = volDf?.UsageData?.Size || 0;
-												return (
-													<div
-														key={m.Name}
-														className="flex items-center gap-1 pl-1 border-l border-white/10"
-													>
-														<span
-															className="text-muted-foreground truncate max-w-[150px]"
-															title={m.Name}
-														>
-															{m.Name}
-														</span>
-														<span className="font-mono text-gray-400">
-															{formatBytes(size)}
-														</span>
-													</div>
-												);
-											},
-										)}
-									</div>
-								)}
 						</div>
 					)}
 				</div>
@@ -582,6 +613,9 @@ export function NodeDetailsSheet({
 				</div>
 			);
 		} else if (nodeType === "volumeNode") {
+			const dfVol = systemDf?.Volumes?.find((v: any) => v.Name === data.Name);
+			const volSize = dfVol?.UsageData?.Size;
+
 			return (
 				<div className="flex flex-wrap gap-4 text-xs mt-2 text-muted-foreground">
 					<div className="flex items-center gap-1">
@@ -600,6 +634,14 @@ export function NodeDetailsSheet({
 						<span className="font-semibold text-foreground/80">Created:</span>{" "}
 						{new Date(data.CreatedAt).toLocaleString()}
 					</div>
+					{volSize !== undefined && (
+						<div className="flex items-center gap-1 border-l border-white/10 pl-4">
+							<span className="font-semibold text-foreground/80">Size:</span>{" "}
+							<span className="text-emerald-400 font-mono">
+								{formatBytes(volSize)}
+							</span>
+						</div>
+					)}
 				</div>
 			);
 		}

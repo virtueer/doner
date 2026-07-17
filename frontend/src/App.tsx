@@ -837,6 +837,7 @@ function Flow() {
 					nodeName={selectedNode.name}
 					nodeType={selectedNode.type}
 					onClose={() => setSelectedNode(null)}
+					onOpenNode={(id, name, type) => setSelectedNode({ id, name, type })}
 				/>
 			)}
 		</>
