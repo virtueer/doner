@@ -12,6 +12,7 @@ import {
 	Folder,
 	FolderPlus,
 	Link,
+	Search,
 	Trash2,
 	Type,
 	X,
@@ -66,6 +67,7 @@ export function FileBrowser({
 	onUnsavedChangesChange?: (hasUnsaved: boolean) => void;
 }) {
 	const [currentPath, setCurrentPath] = useState("/");
+	const [searchQuery, setSearchQuery] = useState("");
 	const [files, setFiles] = useState<any[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -477,6 +479,10 @@ export function FileBrowser({
 		);
 	};
 
+	const filteredFiles = files.filter((f) =>
+		f.name.toLowerCase().includes(searchQuery.toLowerCase()),
+	);
+
 	return (
 		<div className="flex flex-col h-full bg-[#1e1e1e] relative">
 			<div className="flex items-center justify-between px-4 py-3 bg-[#252525] border-b border-white/5">
@@ -507,6 +513,15 @@ export function FileBrowser({
 					</form>
 				</div>
 				<div className="flex items-center gap-2 shrink-0">
+					<div className="relative shrink-0 flex items-center mr-2">
+						<Search className="absolute left-2 h-3.5 w-3.5 text-white/40" />
+						<input
+							value={searchQuery}
+							onChange={(e) => setSearchQuery(e.target.value)}
+							placeholder="Search files..."
+							className="pl-7 pr-2 py-1 w-32 focus:w-48 transition-all bg-black/20 border border-white/10 focus:border-blue-500/50 rounded-md text-xs text-white/90 outline-none"
+						/>
+					</div>
 					{!isFullscreen && (
 						<button
 							onClick={() => {
@@ -652,9 +667,11 @@ export function FileBrowser({
 					</div>
 				) : error ? (
 					<div className="p-4 text-red-400 text-sm">{error}</div>
-				) : files.length === 0 ? (
+				) : filteredFiles.length === 0 ? (
 					<div className="p-4 text-white/40 text-sm italic">
-						Empty directory
+						{files.length === 0
+							? "Empty directory"
+							: "No files match your search"}
 					</div>
 				) : (
 					<div className="overflow-y-auto h-full p-2">
@@ -671,7 +688,7 @@ export function FileBrowser({
 								</tr>
 							</thead>
 							<tbody>
-								{files.map((f, i) => {
+								{filteredFiles.map((f, i) => {
 									const isMount = isMountPoint(f.path);
 									return (
 										<tr
