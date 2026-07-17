@@ -353,11 +353,17 @@ export function NodeDetailsSheet({
 				setData(json);
 
 				if (nodeType === "containerNode") {
-					const dfRes = await fetch(`${apiUrl}/api/system/df`);
-					if (dfRes.ok) {
-						const dfJson = await dfRes.json();
-						setSystemDf(dfJson);
-					}
+					fetch(`${apiUrl}/api/system/df`)
+						.then((dfRes) => {
+							if (dfRes.ok) {
+								return dfRes.json();
+							}
+							return null;
+						})
+						.then((dfJson) => {
+							if (dfJson) setSystemDf(dfJson);
+						})
+						.catch(console.error);
 				}
 			} catch (err: any) {
 				setError(err.message);
@@ -480,30 +486,42 @@ export function NodeDetailsSheet({
 						{renderStatsInfo()}
 					</div>
 
-					{data.SizeRw !== undefined && (
+					{systemDf && (
 						<div className="flex flex-col gap-1 border-t border-white/5 pt-2">
-							<div className="flex flex-wrap gap-4">
-								{data.SizeRootFs !== undefined && (
-									<div
-										className="flex items-center gap-1"
-										title="Underlying image size"
-									>
-										<span className="font-semibold text-foreground/80">
-											Image Size:
-										</span>
-										<span>{formatBytes(data.SizeRootFs - data.SizeRw)}</span>
+							{(() => {
+								const dfContainer = systemDf.Containers?.find(
+									(c: any) => c.Id === data.Id,
+								);
+								const sizeRw = dfContainer?.SizeRw;
+								const sizeRootFs = dfContainer?.SizeRootFs;
+
+								return (
+									<div className="flex flex-wrap gap-4">
+										{sizeRootFs !== undefined && sizeRw !== undefined && (
+											<div
+												className="flex items-center gap-1"
+												title="Underlying image size"
+											>
+												<span className="font-semibold text-foreground/80">
+													Image Size:
+												</span>
+												<span>{formatBytes(sizeRootFs - sizeRw)}</span>
+											</div>
+										)}
+										{sizeRw !== undefined && (
+											<div
+												className="flex items-center gap-1"
+												title="Container's writable layer size"
+											>
+												<span className="font-semibold text-foreground/80">
+													Container Size:
+												</span>
+												<span>{formatBytes(sizeRw)}</span>
+											</div>
+										)}
 									</div>
-								)}
-								<div
-									className="flex items-center gap-1"
-									title="Container's writable layer size"
-								>
-									<span className="font-semibold text-foreground/80">
-										Container Size:
-									</span>
-									<span>{formatBytes(data.SizeRw)}</span>
-								</div>
-							</div>
+								);
+							})()}
 
 							{systemDf?.Volumes &&
 								data.Mounts?.filter((m: any) => m.Type === "volume").length >

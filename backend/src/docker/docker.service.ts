@@ -155,7 +155,7 @@ export class DockerService implements OnModuleDestroy {
 	}
 
 	async inspectContainer(id: string) {
-		return this.docker.getContainer(id).inspect({ size: true } as any);
+		return this.docker.getContainer(id).inspect();
 	}
 
 	async inspectNetwork(id: string) {
