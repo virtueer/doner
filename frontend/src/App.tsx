@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import {
+	Activity,
 	AlertCircle,
 	Box,
 	CheckCircle2,
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 import { AttachScreen } from "./components/AttachScreen";
 import { ContainerNode } from "./components/ContainerNode";
+import { EventsSheet } from "./components/EventsSheet";
 import { FileBrowser } from "./components/FileBrowser";
 import { ImageNode } from "./components/ImageNode";
 import { LogsTerminal } from "./components/LogsTerminal";
@@ -407,6 +409,14 @@ function Flow() {
 	const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
 	const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
+	const [globalEvents, setGlobalEvents] = useState<any[]>([]);
+	const [showEvents, setShowEvents] = useState(false);
+	const pendingReopenNodeRef = useRef<{
+		id: string;
+		name: string;
+		type: string;
+	} | null>(null);
+
 	useEffect(() => {
 		if (isSearchFocused) {
 			try {
@@ -567,9 +577,21 @@ function Flow() {
 					return;
 				}
 
+				setGlobalEvents((prev) => {
+					const next = [e, ...prev];
+					return next.length > 200 ? next.slice(0, 200) : next;
+				});
+
 				if (action === "start" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} started`, "success");
 					fetchGraphData();
+					if (
+						pendingReopenNodeRef.current &&
+						pendingReopenNodeRef.current.id === `cont-${e.id || e.Actor?.ID}`
+					) {
+						setSelectedNode(pendingReopenNodeRef.current);
+						pendingReopenNodeRef.current = null;
+					}
 				} else if (action === "die" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} stopped`, "error");
 					fetchGraphData();
@@ -819,6 +841,14 @@ function Flow() {
 						/>
 						Refresh
 					</button>
+					<button
+						onClick={() => setShowEvents(true)}
+						className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-foreground rounded-lg text-xs font-medium hover:bg-white/10 hover:border-white/20 transition-all border border-transparent ml-2"
+						title="View Events"
+					>
+						<Activity className="h-3.5 w-3.5" />
+						Events
+					</button>
 				</Panel>
 
 				{/* Error toast */}
@@ -838,6 +868,16 @@ function Flow() {
 					nodeType={selectedNode.type}
 					onClose={() => setSelectedNode(null)}
 					onOpenNode={(id, name, type) => setSelectedNode({ id, name, type })}
+					onAutoReopenRequest={(id, name, type) => {
+						pendingReopenNodeRef.current = { id, name, type };
+					}}
+				/>
+			)}
+
+			{showEvents && (
+				<EventsSheet
+					events={globalEvents}
+					onClose={() => setShowEvents(false)}
 				/>
 			)}
 		</>

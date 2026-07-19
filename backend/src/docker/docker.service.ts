@@ -1,3 +1,5 @@
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import * as zlib from "node:zlib";
 import { Injectable, type OnModuleDestroy } from "@nestjs/common";
 import type { Container } from "dockerode";
@@ -6,6 +8,11 @@ import Docker from "dockerode";
 @Injectable()
 export class DockerService implements OnModuleDestroy {
 	private docker: Docker;
+	private linksFilePath = path.join(
+		process.cwd(),
+		"data",
+		"container-links.json",
+	);
 
 	// Track helper containers: Map<targetId, { containerId: string, lastUsed: number, type: 'volume'|'container'|'sidecar' }>
 	private activeHelpers: Map<
@@ -36,6 +43,11 @@ export class DockerService implements OnModuleDestroy {
 				}
 			}
 		}, 30000);
+
+		// Ensure data directory exists
+		fs.mkdir(path.dirname(this.linksFilePath), { recursive: true }).catch(
+			() => {},
+		);
 	}
 
 	async onModuleDestroy() {
@@ -499,6 +511,7 @@ exec sh -i
 						state: container.State,
 						image: container.Image,
 						mounts: mountNames,
+						isInternal: container.Labels?.["doner.internal"] === "true",
 					},
 					position: { x: COL_CONT, y },
 				});
@@ -1049,6 +1062,43 @@ exec sh -i
 		} catch (err: any) {
 			throw new Error(`Failed to rename: ${err.message}`);
 		}
+	}
+
+	// --- Container Links Methods ---
+
+	private async readLinksFile(): Promise<
+		Record<string, { title: string; url: string }[]>
+	> {
+		try {
+			const data = await fs.readFile(this.linksFilePath, "utf8");
+			return JSON.parse(data);
+		} catch (err: any) {
+			if (err.code === "ENOENT") return {};
+			throw err;
+		}
+	}
+
+	async getContainerLinks(
+		id: string,
+	): Promise<{ title: string; url: string }[]> {
+		const linksData = await this.readLinksFile();
+		return linksData[id] || [];
+	}
+
+	async saveContainerLinks(
+		id: string,
+		links: { title: string; url: string }[],
+	): Promise<void> {
+		const linksData = await this.readLinksFile();
+		linksData[id] = links;
+		await fs
+			.mkdir(path.dirname(this.linksFilePath), { recursive: true })
+			.catch(() => {});
+		await fs.writeFile(
+			this.linksFilePath,
+			JSON.stringify(linksData, null, 2),
+			"utf8",
+		);
 	}
 
 	async exportVolumeStream(volumeName: string, res: any) {

@@ -108,6 +108,20 @@ export class AppController {
 		return { success: true };
 	}
 
+	@Get("containers/:id/links")
+	async getContainerLinks(@Param("id") id: string) {
+		return this.dockerService.getContainerLinks(id);
+	}
+
+	@Post("containers/:id/links")
+	async saveContainerLinks(
+		@Param("id") id: string,
+		@Body() body: { links: { title: string; url: string }[] },
+	) {
+		await this.dockerService.saveContainerLinks(id, body.links);
+		return { success: true };
+	}
+
 	@Get("system/df")
 	async getSystemDf() {
 		return this.dockerService.getSystemDf();
