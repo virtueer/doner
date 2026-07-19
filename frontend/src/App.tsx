@@ -585,12 +585,19 @@ function Flow() {
 				if (action === "start" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} started`, "success");
 					fetchGraphData();
-					if (
-						pendingReopenNodeRef.current &&
-						pendingReopenNodeRef.current.id === `cont-${e.id || e.Actor?.ID}`
-					) {
-						setSelectedNode(pendingReopenNodeRef.current);
-						pendingReopenNodeRef.current = null;
+					if (pendingReopenNodeRef.current) {
+						const pendingId = pendingReopenNodeRef.current.id.replace(
+							"cont-",
+							"",
+						);
+						const eventId = e.id || e.Actor?.ID || "";
+						if (
+							eventId.startsWith(pendingId) ||
+							pendingId.startsWith(eventId)
+						) {
+							setSelectedNode(pendingReopenNodeRef.current);
+							pendingReopenNodeRef.current = null;
+						}
 					}
 				} else if (action === "die" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} stopped`, "error");

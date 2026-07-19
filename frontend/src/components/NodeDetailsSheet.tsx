@@ -440,7 +440,7 @@ export function NodeDetailsSheet({
 	const renderStatsInfo = () => {
 		if (!stats) {
 			return (
-				<div className="flex items-center gap-4 border-l border-white/10 pl-4 min-h-[24px]">
+				<div className="flex items-center gap-4 border-l border-white/10 pl-4 min-w-[200px] min-h-[24px]">
 					<span className="text-xs text-muted-foreground animate-pulse">
 						Loading stats...
 					</span>
@@ -538,8 +538,8 @@ export function NodeDetailsSheet({
 						{renderStatsInfo()}
 					</div>
 
-					{systemDf && (
-						<div className="flex flex-col gap-1 border-t border-white/5 pt-2">
+					{systemDf ? (
+						<div className="flex flex-col gap-1 border-t border-white/5 pt-2 min-h-[42px]">
 							{(() => {
 								const dfContainer = systemDf.Containers?.find(
 									(c: any) => c.Id === data.Id,
@@ -638,6 +638,12 @@ export function NodeDetailsSheet({
 								);
 							})()}
 						</div>
+					) : (
+						<div className="flex flex-col gap-1 border-t border-white/5 pt-2 min-h-[42px] justify-center">
+							<span className="text-xs text-muted-foreground animate-pulse">
+								Loading size data...
+							</span>
+						</div>
 					)}
 				</div>
 			);
@@ -684,11 +690,17 @@ export function NodeDetailsSheet({
 						<span className="font-semibold text-foreground/80">Created:</span>{" "}
 						{new Date(data.CreatedAt).toLocaleString()}
 					</div>
-					{volSize !== undefined && (
-						<div className="flex items-center gap-1 border-l border-white/10 pl-4">
+					{volSize !== undefined ? (
+						<div className="flex items-center gap-1 border-l border-white/10 pl-4 min-w-[120px]">
 							<span className="font-semibold text-foreground/80">Size:</span>{" "}
 							<span className="text-emerald-400 font-mono">
 								{formatBytes(volSize)}
+							</span>
+						</div>
+					) : (
+						<div className="flex items-center gap-1 border-l border-white/10 pl-4 min-w-[120px]">
+							<span className="text-xs text-muted-foreground animate-pulse">
+								Loading size...
 							</span>
 						</div>
 					)}
@@ -1033,7 +1045,7 @@ export function NodeDetailsSheet({
 
 					{activeTab === "links" && isContainer && (
 						<div className="flex-1 overflow-y-auto p-6 scroll-smooth bg-[#1e1e1e]">
-							<div className="max-w-2xl mx-auto space-y-6">
+							<div className="max-w-2xl space-y-6">
 								<div>
 									<h3 className="text-lg font-medium text-white mb-2">
 										Container Links
@@ -1107,7 +1119,7 @@ export function NodeDetailsSheet({
 											onClick={() =>
 												setLinks([...links, { title: "", url: "" }])
 											}
-											className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
+											className="flex items-center gap-2 text-sm px-3 py-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-md border border-blue-500/20 transition-colors w-fit"
 										>
 											<Plus className="w-4 h-4" />
 											Add Link
