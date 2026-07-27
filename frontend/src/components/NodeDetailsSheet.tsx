@@ -597,6 +597,23 @@ export function NodeDetailsSheet({
 		return `${parseFloat((bytes / k ** i).toFixed(dm))} ${sizes[i]}`;
 	};
 
+	const formatUptime = (startedAt: string) => {
+		const start = new Date(startedAt).getTime();
+		if (Number.isNaN(start)) return "Unknown";
+		const now = Date.now();
+		const diffMs = Math.max(0, now - start);
+		const diffSec = Math.floor(diffMs / 1000);
+
+		const m = Math.floor(diffSec / 60);
+		const h = Math.floor(m / 60);
+		const d = Math.floor(h / 24);
+
+		if (d > 0) return `${d}d ${h % 24}h`;
+		if (h > 0) return `${h}h ${m % 60}m`;
+		if (m > 0) return `${m}m ${diffSec % 60}s`;
+		return `${diffSec}s`;
+	};
+
 	const renderStatsInfo = () => {
 		if (!stats) {
 			return (
@@ -695,6 +712,14 @@ export function NodeDetailsSheet({
 								{data.State?.Status}
 							</span>
 						</div>
+						{data.State?.Running && data.State?.StartedAt && (
+							<div className="flex items-center gap-1">
+								<span className="font-semibold text-foreground/80">
+									Uptime:
+								</span>{" "}
+								{formatUptime(data.State.StartedAt)}
+							</div>
+						)}
 						{renderStatsInfo()}
 					</div>
 
