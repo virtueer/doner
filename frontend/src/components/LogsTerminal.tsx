@@ -1,9 +1,108 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { renderAnsiLine } from "@/lib/ansi";
 
 interface LogsTerminalProps {
 	containerId: string;
 	containerName: string;
+}
+
+function TerminalLogLine({
+	line,
+	index,
+	showTimestamps,
+}: {
+	line: string;
+	index: number;
+	showTimestamps: boolean;
+}) {
+	const [isExpanded, setIsExpanded] = useState(false);
+	const [isOverflowing, setIsOverflowing] = useState(false);
+	const contentRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		const el = contentRef.current;
+		if (!el) return;
+		setIsOverflowing(el.scrollWidth > el.clientWidth);
+	}, []);
+
+	const spaceIdx = line.indexOf(" ");
+	let timestamp = "";
+	let content = line;
+	if (spaceIdx > 10 && spaceIdx <= 35) {
+		const possibleTs = line.substring(0, spaceIdx);
+		if (/^\d{4}-\d{2}-\d{2}T/.test(possibleTs)) {
+			timestamp = possibleTs;
+			content = line.substring(spaceIdx + 1);
+		}
+	}
+
+	const canExpand = isOverflowing;
+
+	return (
+		<div
+			onClick={canExpand ? () => setIsExpanded(!isExpanded) : undefined}
+			onKeyDown={
+				canExpand
+					? (e) => {
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault();
+								setIsExpanded(!isExpanded);
+							}
+						}
+					: undefined
+			}
+			role={canExpand ? "button" : undefined}
+			tabIndex={canExpand ? 0 : undefined}
+			className={[
+				"terminal-log-line group flex items-start gap-0 border-b border-white/[0.04] transition-all duration-150",
+				canExpand ? "cursor-pointer" : "",
+				isExpanded
+					? "bg-white/[0.06] shadow-[inset_3px_0_0_hsl(217,90%,60%)]"
+					: "",
+			]
+				.filter(Boolean)
+				.join(" ")}
+		>
+			{/* Line number */}
+			<div className="min-w-[52px] text-right pr-3 py-[6px] pl-2 text-[11px] text-white/15 select-none border-r border-white/[0.04] shrink-0 font-mono">
+				{index + 1}
+			</div>
+
+			{/* Expand indicator — only show if expandable */}
+			{canExpand ? (
+				<div
+					className="min-w-[22px] py-[6px] text-center text-[9px] text-white/20 select-none shrink-0 transition-transform duration-200"
+					style={{
+						transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+					}}
+				>
+					▶
+				</div>
+			) : (
+				<div className="min-w-[22px] py-[6px] shrink-0" />
+			)}
+
+			{/* Timestamp */}
+			{timestamp && showTimestamps && (
+				<div className="py-[6px] pr-3 text-[11px] text-white/25 select-none shrink-0 whitespace-nowrap font-mono">
+					{timestamp}
+				</div>
+			)}
+
+			{/* Log content */}
+			<div
+				ref={contentRef}
+				className={[
+					"flex-1 py-[6px] pr-4 min-w-0 text-[13px] leading-relaxed text-gray-300",
+					isExpanded
+						? "whitespace-pre-wrap break-all"
+						: "whitespace-nowrap overflow-hidden text-ellipsis",
+				].join(" ")}
+			>
+				{renderAnsiLine(content)}
+			</div>
+		</div>
+	);
 }
 
 export function LogsTerminal({
@@ -12,22 +111,9 @@ export function LogsTerminal({
 }: LogsTerminalProps) {
 	const [logs, setLogs] = useState<string[]>([]);
 	const [showTimestamps, setShowTimestamps] = useState(true);
-	const [expandedLines, setExpandedLines] = useState<Set<number>>(new Set());
 	const logsEndRef = useRef<HTMLDivElement>(null);
 	const [autoScroll, setAutoScroll] = useState(true);
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-	const toggleLine = useCallback((index: number) => {
-		setExpandedLines((prev) => {
-			const next = new Set(prev);
-			if (next.has(index)) {
-				next.delete(index);
-			} else {
-				next.add(index);
-			}
-			return next;
-		});
-	}, []);
 
 	useEffect(() => {
 		document.title = `${containerName} — Logs`;
@@ -64,7 +150,7 @@ export function LogsTerminal({
 		if (autoScroll) {
 			logsEndRef.current?.scrollIntoView({ behavior: "auto" });
 		}
-	}, [logs, autoScroll]);
+	}, [autoScroll]);
 
 	// Detect manual scrolling to pause auto-scroll
 	const handleScroll = useCallback(() => {
@@ -75,90 +161,22 @@ export function LogsTerminal({
 	}, []);
 
 	return (
-		<div
-			style={{
-				height: "100vh",
-				width: "100vw",
-				background: "#000000",
-				color: "#00ff41",
-				display: "flex",
-				flexDirection: "column",
-				fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', 'Consolas', monospace",
-				fontSize: "13px",
-				lineHeight: "1.5",
-			}}
-		>
+		<div className="h-screen w-screen bg-[#0f1117] text-gray-300 flex flex-col font-mono text-sm">
 			{/* Header Bar */}
-			<div
-				style={{
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "space-between",
-					padding: "10px 16px",
-					borderBottom: "1px solid #0a3d0a",
-					background: "#000000",
-					flexShrink: 0,
-				}}
-			>
-				<div
-					style={{
-						color: "#00aa2a",
-						fontSize: "12px",
-						fontWeight: 700,
-						letterSpacing: "0.5px",
-						display: "flex",
-						alignItems: "center",
-						gap: "8px",
-					}}
-				>
-					<span
-						style={{
-							display: "inline-block",
-							width: "8px",
-							height: "8px",
-							borderRadius: "50%",
-							background: "#00ff41",
-							boxShadow: "0 0 6px #00ff41, 0 0 12px #00ff4180",
-							animation: "pulse-glow 2s ease-in-out infinite",
-						}}
-					/>
-					<span style={{ color: "#005f15" }}>$</span> docker logs -f{" "}
-					<span style={{ color: "#00ff41" }}>{containerName}</span>
+			<div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-[#161822] shrink-0">
+				<div className="flex items-center gap-2 text-xs font-bold tracking-wide text-white/40">
+					<span className="inline-block w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.5)] animate-pulse" />
+					<span className="text-white/20">$</span> docker logs -f{" "}
+					<span className="text-blue-400/80">{containerName}</span>
 				</div>
-				<div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-					<span
-						style={{
-							color: "#005f15",
-							fontSize: "11px",
-							marginRight: "4px",
-						}}
-					>
+				<div className="flex items-center gap-2">
+					<span className="text-[11px] text-white/20 mr-1 font-mono">
 						{logs.length} lines
 					</span>
 					<button
 						type="button"
 						onClick={() => setShowTimestamps(!showTimestamps)}
-						style={{
-							fontSize: "11px",
-							color: "#00aa2a",
-							background: "transparent",
-							border: "1px solid #0a3d0a",
-							borderRadius: "4px",
-							padding: "4px 10px",
-							cursor: "pointer",
-							transition: "all 0.2s ease",
-							fontFamily: "inherit",
-						}}
-						onMouseEnter={(e) => {
-							e.currentTarget.style.borderColor = "#00ff41";
-							e.currentTarget.style.color = "#00ff41";
-							e.currentTarget.style.boxShadow = "0 0 8px #00ff4130";
-						}}
-						onMouseLeave={(e) => {
-							e.currentTarget.style.borderColor = "#0a3d0a";
-							e.currentTarget.style.color = "#00aa2a";
-							e.currentTarget.style.boxShadow = "none";
-						}}
+						className="text-[11px] text-white/40 bg-transparent border border-white/[0.08] rounded px-2.5 py-1.5 transition-all hover:text-white/70 hover:border-white/20 hover:bg-white/[0.04] font-medium"
 					>
 						{showTimestamps ? "Hide Timestamps" : "Show Timestamps"}
 					</button>
@@ -169,159 +187,22 @@ export function LogsTerminal({
 			<div
 				ref={scrollContainerRef}
 				onScroll={handleScroll}
-				style={{
-					flex: 1,
-					overflowY: "auto",
-					overflowX: "hidden",
-					padding: "0",
-				}}
+				className="flex-1 overflow-y-auto overflow-x-hidden"
 			>
 				{logs.length === 0 && (
-					<div
-						style={{
-							color: "#005f15",
-							fontStyle: "italic",
-							padding: "24px 16px",
-							textAlign: "center",
-						}}
-					>
-						<span style={{ opacity: 0.6 }}>▌</span> Waiting for logs...
+					<div className="text-white/20 italic text-center py-12 text-sm">
+						<span className="opacity-50">▌</span> Waiting for logs...
 					</div>
 				)}
 
-				{logs.map((line, i) => {
-					const spaceIdx = line.indexOf(" ");
-					let timestamp = "";
-					let content = line;
-					if (spaceIdx > 10 && spaceIdx <= 35) {
-						const possibleTs = line.substring(0, spaceIdx);
-						if (/^\d{4}-\d{2}-\d{2}T/.test(possibleTs)) {
-							timestamp = possibleTs;
-							content = line.substring(spaceIdx + 1);
-						}
-					}
-
-					const isExpanded = expandedLines.has(i);
-
-					return (
-						<div
-							key={i}
-							onClick={() => toggleLine(i)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter" || e.key === " ") {
-									e.preventDefault();
-									toggleLine(i);
-								}
-							}}
-							role="button"
-							tabIndex={0}
-							style={{
-								display: "flex",
-								alignItems: "flex-start",
-								gap: "0",
-								borderBottom: "1px solid #0a1f0a",
-								cursor: "pointer",
-								transition: "background-color 0.15s ease",
-								background: isExpanded ? "#001a00" : "transparent",
-								...(isExpanded
-									? {
-											boxShadow:
-												"inset 3px 0 0 #00ff41, 0 0 15px #00ff4108",
-										}
-									: {}),
-							}}
-							onMouseEnter={(e) => {
-								if (!isExpanded) {
-									e.currentTarget.style.background = "#0a0f0a";
-								}
-							}}
-							onMouseLeave={(e) => {
-								if (!isExpanded) {
-									e.currentTarget.style.background = "transparent";
-								}
-							}}
-						>
-							{/* Line number */}
-							<div
-								style={{
-									minWidth: "52px",
-									textAlign: "right",
-									paddingRight: "12px",
-									paddingTop: "6px",
-									paddingBottom: "6px",
-									paddingLeft: "8px",
-									color: "#0a3d0a",
-									fontSize: "11px",
-									userSelect: "none",
-									borderRight: "1px solid #0a1f0a",
-									flexShrink: 0,
-								}}
-							>
-								{i + 1}
-							</div>
-
-							{/* Expand indicator */}
-							<div
-								style={{
-									minWidth: "20px",
-									paddingTop: "6px",
-									paddingBottom: "6px",
-									textAlign: "center",
-									color: "#005f15",
-									fontSize: "10px",
-									userSelect: "none",
-									flexShrink: 0,
-									transition: "transform 0.2s ease",
-									transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
-								}}
-							>
-								▶
-							</div>
-
-							{/* Timestamp */}
-							{timestamp && showTimestamps && (
-								<div
-									style={{
-										paddingTop: "6px",
-										paddingBottom: "6px",
-										paddingRight: "12px",
-										color: "#005f15",
-										fontSize: "11px",
-										userSelect: "none",
-										flexShrink: 0,
-										whiteSpace: "nowrap",
-									}}
-								>
-									{timestamp}
-								</div>
-							)}
-
-							{/* Log content */}
-							<div
-								style={{
-									flex: 1,
-									paddingTop: "6px",
-									paddingBottom: "6px",
-									paddingRight: "16px",
-									minWidth: 0,
-									...(isExpanded
-										? {
-												whiteSpace: "pre-wrap",
-												wordBreak: "break-all",
-											}
-										: {
-												whiteSpace: "nowrap",
-												overflow: "hidden",
-												textOverflow: "ellipsis",
-											}),
-									color: "#00ff41",
-								}}
-							>
-								{renderAnsiLine(content)}
-							</div>
-						</div>
-					);
-				})}
+				{logs.map((line, i) => (
+					<TerminalLogLine
+						key={i}
+						line={line}
+						index={i}
+						showTimestamps={showTimestamps}
+					/>
+				))}
 				<div ref={logsEndRef} />
 			</div>
 
@@ -333,40 +214,20 @@ export function LogsTerminal({
 						setAutoScroll(true);
 						logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
 					}}
-					style={{
-						position: "fixed",
-						bottom: "16px",
-						right: "16px",
-						background: "#001a00",
-						border: "1px solid #00ff41",
-						color: "#00ff41",
-						borderRadius: "6px",
-						padding: "8px 14px",
-						fontSize: "11px",
-						cursor: "pointer",
-						fontFamily: "inherit",
-						boxShadow: "0 0 12px #00ff4130, 0 2px 8px rgba(0,0,0,0.5)",
-						zIndex: 100,
-						transition: "all 0.2s ease",
-					}}
-					onMouseEnter={(e) => {
-						e.currentTarget.style.boxShadow =
-							"0 0 20px #00ff4150, 0 2px 8px rgba(0,0,0,0.5)";
-					}}
-					onMouseLeave={(e) => {
-						e.currentTarget.style.boxShadow =
-							"0 0 12px #00ff4130, 0 2px 8px rgba(0,0,0,0.5)";
-					}}
+					className="fixed bottom-4 right-4 bg-[#1a1d2e] border border-blue-500/30 text-blue-400 rounded-md px-3.5 py-2 text-[11px] font-mono cursor-pointer shadow-lg hover:border-blue-500/50 hover:shadow-blue-500/10 transition-all z-[100]"
 				>
 					↓ Jump to bottom
 				</button>
 			)}
 
-			{/* Inline keyframe animation for the pulse glow */}
+			{/* Hover styles & scrollbar */}
 			<style>{`
-				@keyframes pulse-glow {
-					0%, 100% { opacity: 1; box-shadow: 0 0 6px #00ff41, 0 0 12px #00ff4180; }
-					50% { opacity: 0.5; box-shadow: 0 0 3px #00ff41, 0 0 6px #00ff4140; }
+				.terminal-log-line:hover {
+					background: rgba(255, 255, 255, 0.03) !important;
+					box-shadow: inset 3px 0 0 rgba(255, 255, 255, 0.08);
+				}
+				.terminal-log-line:hover .min-w-\\[52px\\] {
+					color: rgba(255, 255, 255, 0.35) !important;
 				}
 
 				/* Scrollbar styling */
@@ -374,14 +235,14 @@ export function LogsTerminal({
 					width: 6px;
 				}
 				div::-webkit-scrollbar-track {
-					background: #000000;
+					background: #0f1117;
 				}
 				div::-webkit-scrollbar-thumb {
-					background: #0a3d0a;
+					background: rgba(255, 255, 255, 0.08);
 					border-radius: 3px;
 				}
 				div::-webkit-scrollbar-thumb:hover {
-					background: #00aa2a;
+					background: rgba(255, 255, 255, 0.15);
 				}
 			`}</style>
 		</div>
