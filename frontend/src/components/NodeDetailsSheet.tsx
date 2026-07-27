@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { renderAnsiLine } from "@/lib/ansi";
+import { detectLogLevel, highlightLog } from "@/lib/logHighlight";
 import { AttachTerminal } from "./AttachTerminal";
 import { FileBrowser } from "./FileBrowser";
 
@@ -25,10 +26,12 @@ function LogLine({
 	line,
 	index,
 	showTimestamps,
+	highlightEnabled,
 }: {
 	line: string;
 	index: number;
 	showTimestamps: boolean;
+	highlightEnabled: boolean;
 }) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [isOverflowing, setIsOverflowing] = useState(false);
@@ -52,6 +55,7 @@ function LogLine({
 	}
 
 	const canExpand = isOverflowing;
+	const levelInfo = highlightEnabled ? detectLogLevel(line) : null;
 
 	return (
 		<div
@@ -77,6 +81,14 @@ function LogLine({
 			]
 				.filter(Boolean)
 				.join(" ")}
+			style={{
+				...(levelInfo && !isExpanded
+					? {
+							background: levelInfo.bg,
+							boxShadow: `inset 2px 0 0 ${levelInfo.color}`,
+						}
+					: {}),
+			}}
 		>
 			{/* Line number */}
 			<div className="min-w-[44px] text-right pr-3 py-[5px] pl-2 text-[11px] text-white/15 select-none border-r border-white/[0.04] shrink-0 font-mono">
@@ -114,7 +126,7 @@ function LogLine({
 						: "whitespace-nowrap overflow-hidden text-ellipsis",
 				].join(" ")}
 			>
-				{renderAnsiLine(content)}
+				{highlightEnabled ? highlightLog(content) : renderAnsiLine(content)}
 			</div>
 		</div>
 	);
@@ -129,6 +141,7 @@ function ContainerLogs({
 }) {
 	const [logs, setLogs] = useState<string[]>([]);
 	const [showTimestamps, setShowTimestamps] = useState(true);
+	const [highlightEnabled, setHighlightEnabled] = useState(true);
 	const logsEndRef = useRef<HTMLDivElement>(null);
 	const eventSourceRef = useRef<EventSource | null>(null);
 	const [autoScroll, setAutoScroll] = useState(true);
@@ -204,6 +217,18 @@ function ContainerLogs({
 					</button>
 					<button
 						type="button"
+						onClick={() => setHighlightEnabled(!highlightEnabled)}
+						className={[
+							"flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-all",
+							highlightEnabled
+								? "border-blue-500/30 text-blue-400 bg-blue-500/[0.08] hover:bg-blue-500/[0.15]"
+								: "border-white/[0.08] text-white/40 hover:text-white/70 hover:border-white/20 hover:bg-white/[0.04]",
+						].join(" ")}
+					>
+						{highlightEnabled ? "Highlighting" : "Highlight"}
+					</button>
+					<button
+						type="button"
 						onClick={openTerminalTab}
 						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium bg-white/[0.06] hover:bg-white/[0.12] text-white/60 hover:text-white/90 transition-all"
 					>
@@ -230,6 +255,7 @@ function ContainerLogs({
 						line={line}
 						index={i}
 						showTimestamps={showTimestamps}
+						highlightEnabled={highlightEnabled}
 					/>
 				))}
 				<div ref={logsEndRef} />

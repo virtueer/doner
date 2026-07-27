@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { renderAnsiLine } from "@/lib/ansi";
+import { detectLogLevel, highlightLog } from "@/lib/logHighlight";
 
 interface LogsTerminalProps {
 	containerId: string;
@@ -10,10 +11,12 @@ function TerminalLogLine({
 	line,
 	index,
 	showTimestamps,
+	highlightEnabled,
 }: {
 	line: string;
 	index: number;
 	showTimestamps: boolean;
+	highlightEnabled: boolean;
 }) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [isOverflowing, setIsOverflowing] = useState(false);
@@ -37,6 +40,7 @@ function TerminalLogLine({
 	}
 
 	const canExpand = isOverflowing;
+	const levelInfo = highlightEnabled ? detectLogLevel(line) : null;
 
 	return (
 		<div
@@ -62,6 +66,14 @@ function TerminalLogLine({
 			]
 				.filter(Boolean)
 				.join(" ")}
+			style={{
+				...(levelInfo && !isExpanded
+					? {
+							background: levelInfo.bg,
+							boxShadow: `inset 2px 0 0 ${levelInfo.color}`,
+						}
+					: {}),
+			}}
 		>
 			{/* Line number */}
 			<div className="min-w-[52px] text-right pr-3 py-[6px] pl-2 text-[11px] text-white/15 select-none border-r border-white/[0.04] shrink-0 font-mono">
@@ -99,7 +111,7 @@ function TerminalLogLine({
 						: "whitespace-nowrap overflow-hidden text-ellipsis",
 				].join(" ")}
 			>
-				{renderAnsiLine(content)}
+				{highlightEnabled ? highlightLog(content) : renderAnsiLine(content)}
 			</div>
 		</div>
 	);
@@ -111,6 +123,7 @@ export function LogsTerminal({
 }: LogsTerminalProps) {
 	const [logs, setLogs] = useState<string[]>([]);
 	const [showTimestamps, setShowTimestamps] = useState(true);
+	const [highlightEnabled, setHighlightEnabled] = useState(true);
 	const logsEndRef = useRef<HTMLDivElement>(null);
 	const [autoScroll, setAutoScroll] = useState(true);
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -180,6 +193,18 @@ export function LogsTerminal({
 					>
 						{showTimestamps ? "Hide Timestamps" : "Show Timestamps"}
 					</button>
+					<button
+						type="button"
+						onClick={() => setHighlightEnabled(!highlightEnabled)}
+						className={[
+							"text-[11px] rounded px-2.5 py-1.5 transition-all font-medium border",
+							highlightEnabled
+								? "border-blue-500/30 text-blue-400 bg-blue-500/[0.08] hover:bg-blue-500/[0.15]"
+								: "border-white/[0.08] text-white/40 hover:text-white/70 hover:border-white/20 hover:bg-white/[0.04]",
+						].join(" ")}
+					>
+						{highlightEnabled ? "Highlighting" : "Highlight"}
+					</button>
 				</div>
 			</div>
 
@@ -201,6 +226,7 @@ export function LogsTerminal({
 						line={line}
 						index={i}
 						showTimestamps={showTimestamps}
+						highlightEnabled={highlightEnabled}
 					/>
 				))}
 				<div ref={logsEndRef} />
