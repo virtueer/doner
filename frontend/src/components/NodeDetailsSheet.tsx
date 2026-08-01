@@ -17,7 +17,11 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { renderAnsiLine } from "@/lib/ansi";
-import { detectLogLevel, highlightLog } from "@/lib/logHighlight";
+import {
+	detectLogLevel,
+	highlightLog,
+	renderJsonHighlight,
+} from "@/lib/logHighlight";
 import { AttachTerminal } from "./AttachTerminal";
 import { FileBrowser } from "./FileBrowser";
 
@@ -1112,8 +1116,10 @@ export function NodeDetailsSheet({
 											<Copy className="h-4 w-4" />
 										)}
 									</button>
-									<pre className="text-xs font-mono text-gray-300 overflow-x-auto bg-black/20 p-4 rounded-lg m-0 relative">
-										{`{\n`}
+									<pre className="text-xs font-mono text-gray-300 overflow-x-auto bg-black/20 border border-white/5 p-4 rounded-lg m-0 relative">
+										<span
+											style={{ color: "rgba(255,255,255,0.3)" }}
+										>{`{\n`}</span>
 										{rootKeys.map((key, index) => {
 											const str = JSON.stringify({ [key]: data[key] }, null, 2);
 											// Extract inner content without the outer braces
@@ -1124,12 +1130,20 @@ export function NodeDetailsSheet({
 													id={`json-section-${key}`}
 													className="scroll-mt-32 block"
 												>
-													{inner}
-													{index < rootKeys.length - 1 ? "," : ""}
+													{renderJsonHighlight(inner)}
+													{index < rootKeys.length - 1 ? (
+														<span style={{ color: "rgba(255,255,255,0.3)" }}>
+															,
+														</span>
+													) : (
+														""
+													)}
 												</span>
 											);
 										})}
-										{`}`}
+										<span
+											style={{ color: "rgba(255,255,255,0.3)" }}
+										>{`}`}</span>
 									</pre>
 								</div>
 							</>

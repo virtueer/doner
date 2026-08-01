@@ -97,7 +97,7 @@ export function highlightLog(text: string): ReactNode {
 
 // --- JSON Highlighting ---
 
-function renderJsonHighlight(text: string): ReactNode[] {
+export function renderJsonHighlight(text: string): ReactNode[] {
 	const elements: ReactNode[] = [];
 	// Combined tokenizer: key+colon, string value, number, boolean, null, structural
 	const tokenRegex =
