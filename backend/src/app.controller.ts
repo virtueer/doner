@@ -293,15 +293,47 @@ export class AppController {
 	}
 
 	@Get("volumes/:name/export")
-	async exportVolume(@Param("name") name: string, @Res() res: any) {
+	async exportVolume(
+		@Param("name") name: string,
+		@Query("path") reqPath: string,
+		@Res() res: any,
+	) {
+		const targetPath = reqPath || "";
+		const filename = targetPath
+			? targetPath.split("/").filter(Boolean).pop()
+			: name;
 		res.setHeader("Content-Type", "application/gzip");
 		res.setHeader(
 			"Content-Disposition",
-			`attachment; filename="${name}.tar.gz"`,
+			`attachment; filename="${filename}.tar.gz"`,
 		);
 
 		try {
-			await this.dockerService.exportVolumeStream(name, res);
+			await this.dockerService.exportVolumeStream(name, targetPath, res);
+		} catch (err) {
+			console.error("Export error:", err);
+			if (!res.headersSent) res.status(500).send("Export failed");
+		}
+	}
+
+	@Get("containers/:id/export")
+	async exportContainer(
+		@Param("id") id: string,
+		@Query("path") reqPath: string,
+		@Res() res: any,
+	) {
+		const targetPath = reqPath || "";
+		const filename = targetPath
+			? targetPath.split("/").filter(Boolean).pop()
+			: id;
+		res.setHeader("Content-Type", "application/gzip");
+		res.setHeader(
+			"Content-Disposition",
+			`attachment; filename="${filename}.tar.gz"`,
+		);
+
+		try {
+			await this.dockerService.exportContainerStream(id, targetPath, res);
 		} catch (err) {
 			console.error("Export error:", err);
 			if (!res.headersSent) res.status(500).send("Export failed");

@@ -1101,7 +1101,7 @@ exec sh -i
 		);
 	}
 
-	async exportVolumeStream(volumeName: string, res: any) {
+	async exportVolumeStream(volumeName: string, subPath: string, res: any) {
 		try {
 			const helperId = await this.getHelperContainer(
 				volumeName,
@@ -1110,12 +1110,32 @@ exec sh -i
 			);
 			const container = this.docker.getContainer(helperId);
 
-			const archiveStream = await container.getArchive({ path: "/data" });
+			const safePath = subPath
+				.replace(/(\.\.\/|\.\.\\)/g, "")
+				.replace(/^\/+/, "");
+			const fullPath = safePath ? `/data/${safePath}` : "/data";
+
+			const archiveStream = await container.getArchive({ path: fullPath });
 			const gzip = zlib.createGzip();
 
 			archiveStream.pipe(gzip).pipe(res);
 		} catch (err: any) {
 			throw new Error(`Failed to export volume: ${err.message}`);
+		}
+	}
+
+	async exportContainerStream(containerId: string, subPath: string, res: any) {
+		try {
+			const container = this.docker.getContainer(containerId);
+			const safePath = subPath.replace(/(\.\.\/|\.\.\\)/g, "");
+			const fullPath = safePath.startsWith("/") ? safePath : `/${safePath}`;
+
+			const archiveStream = await container.getArchive({ path: fullPath });
+			const gzip = zlib.createGzip();
+
+			archiveStream.pipe(gzip).pipe(res);
+		} catch (err: any) {
+			throw new Error(`Failed to export container path: ${err.message}`);
 		}
 	}
 

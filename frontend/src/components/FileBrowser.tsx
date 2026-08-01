@@ -17,7 +17,7 @@ import {
 	Type,
 	X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const getLanguageFromExtension = (filename: string) => {
 	const ext = filename.split(".").pop()?.toLowerCase() || "";
@@ -71,6 +71,7 @@ export function FileBrowser({
 	const [files, setFiles] = useState<any[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
 
 	const [viewFile, setViewFile] = useState<string | null>(null);
 	const [viewFilePath, setViewFilePath] = useState<string | null>(null);
@@ -283,9 +284,16 @@ export function FileBrowser({
 	};
 
 	const handleExport = () => {
-		if (type !== "volume") return;
 		const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 		window.open(`${apiUrl}${apiPrefix}/export`, "_blank");
+	};
+
+	const handleExportItem = (file: any) => {
+		const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
+		window.open(
+			`${apiUrl}${apiPrefix}/export?path=${encodeURIComponent(file.path)}`,
+			"_blank",
+		);
 	};
 
 	const formatBytes = (bytes: number, decimals = 2) => {
@@ -299,10 +307,22 @@ export function FileBrowser({
 
 	const handleContextMenu = (e: React.MouseEvent, file: any) => {
 		e.preventDefault();
+		if (!containerRef.current) return;
+		const rect = containerRef.current.getBoundingClientRect();
+
+		let x = e.clientX - rect.left;
+		let y = e.clientY - rect.top;
+
+		// Prevent context menu from going off-screen (approximate sizes)
+		const menuWidth = 192;
+		const menuHeight = 220;
+		if (x + menuWidth > rect.width) x = rect.width - menuWidth;
+		if (y + menuHeight > rect.height) y = rect.height - menuHeight;
+
 		setContextMenu({
 			visible: true,
-			x: e.clientX,
-			y: e.clientY,
+			x: Math.max(0, x),
+			y: Math.max(0, y),
 			file,
 		});
 	};
@@ -484,7 +504,10 @@ export function FileBrowser({
 	);
 
 	return (
-		<div className="flex flex-col h-full bg-[#1e1e1e] relative">
+		<div
+			className="flex flex-col h-full bg-[#1e1e1e] relative"
+			ref={containerRef}
+		>
 			<div className="flex items-center justify-between px-4 py-3 bg-[#252525] border-b border-white/5">
 				<div className="flex items-center gap-2 overflow-hidden flex-1 mr-4">
 					<button
@@ -551,10 +574,21 @@ export function FileBrowser({
 				onContextMenu={(e) => {
 					// Allow pasting when right clicking on the empty area
 					e.preventDefault();
+					if (!containerRef.current) return;
+					const rect = containerRef.current.getBoundingClientRect();
+
+					let x = e.clientX - rect.left;
+					let y = e.clientY - rect.top;
+
+					const menuWidth = 192;
+					const menuHeight = 220;
+					if (x + menuWidth > rect.width) x = rect.width - menuWidth;
+					if (y + menuHeight > rect.height) y = rect.height - menuHeight;
+
 					setContextMenu({
 						visible: true,
-						x: e.clientX,
-						y: e.clientY,
+						x: Math.max(0, x),
+						y: Math.max(0, y),
 						file: null, // null means we clicked on the background
 					});
 				}}
@@ -753,7 +787,7 @@ export function FileBrowser({
 			{/* Context Menu */}
 			{contextMenu?.visible && (
 				<div
-					className="fixed z-50 bg-[#2a2a2a] border border-white/10 rounded-md shadow-2xl py-1 w-48 text-sm"
+					className="absolute z-50 bg-[#2a2a2a] border border-white/10 rounded-md shadow-2xl py-1 w-48 text-sm"
 					style={{ top: contextMenu.y, left: contextMenu.x }}
 					onClick={(e) => e.stopPropagation()}
 				>
@@ -787,6 +821,15 @@ export function FileBrowser({
 								}}
 							>
 								<Copy className="h-4 w-4" /> Copy
+							</button>
+							<button
+								className="w-full text-left px-4 py-2 hover:bg-blue-500/20 text-blue-400 flex items-center gap-2 transition-colors"
+								onClick={() => {
+									handleExportItem(contextMenu.file);
+									setContextMenu(null);
+								}}
+							>
+								<Download className="h-4 w-4" /> Export
 							</button>
 						</>
 					)}
