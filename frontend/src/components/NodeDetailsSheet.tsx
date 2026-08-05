@@ -1,25 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
-import {
-	Box,
-	Database,
-	Folder,
-	Info,
-	Link,
-	Network,
-	Play,
-	Search,
-	Terminal,
-} from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "@/lib/api";
+import { useCallback, useState } from "react";
+import { useNodeStats } from "@/hooks/useNodeStats";
+import { useResizableSheet } from "@/hooks/useResizableSheet";
 import { AttachTab } from "./AttachTab";
 import { type ConfirmDialogState, ConfirmModal } from "./ConfirmModal";
 import { ContainerLogs } from "./ContainerLogs";
 import { FileBrowser } from "./FileBrowser";
 import { InspectTab } from "./InspectTab";
 import { LinksTab } from "./LinksTab";
-import { NodeActionButtons } from "./NodeActionButtons";
-import { NodeShortInfo } from "./NodeShortInfo";
+import { NodeDetailsHeader } from "./NodeDetails/NodeDetailsHeader";
+import { NodeDetailsTabs } from "./NodeDetails/NodeDetailsTabs";
 
 // --- Main Unified Sheet ---
 export function NodeDetailsSheet({
@@ -40,40 +29,8 @@ export function NodeDetailsSheet({
 	const [activeTab, setActiveTab] = useState<
 		"inspect" | "logs" | "attach" | "files" | "links"
 	>("inspect");
-	const [stats, setStats] = useState<any>(null);
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-	const [sheetWidth, setSheetWidth] = useState(() => window.innerWidth * 0.75);
-
-	const isResizing = useRef(false);
-
-	const handleMouseDown = useCallback((_: React.MouseEvent) => {
-		isResizing.current = true;
-		document.body.style.cursor = "col-resize";
-	}, []);
-
-	useEffect(() => {
-		const handleMouseMove = (e: MouseEvent) => {
-			if (!isResizing.current) return;
-			const newWidth = window.innerWidth - e.clientX;
-			if (newWidth >= 400 && newWidth <= window.innerWidth * 0.95) {
-				setSheetWidth(newWidth);
-			}
-		};
-		const handleMouseUp = () => {
-			if (isResizing.current) {
-				isResizing.current = false;
-				document.body.style.cursor = "default";
-			}
-		};
-
-		document.addEventListener("mousemove", handleMouseMove);
-		document.addEventListener("mouseup", handleMouseUp);
-		return () => {
-			document.removeEventListener("mousemove", handleMouseMove);
-			document.removeEventListener("mouseup", handleMouseUp);
-			document.body.style.cursor = "default";
-		};
-	}, []);
+	const { sheetWidth, handleMouseDown } = useResizableSheet(0.75, 400);
 
 	const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(
 		null,
@@ -102,46 +59,11 @@ export function NodeDetailsSheet({
 	const isContainer = nodeType === "containerNode";
 	const isVolume = nodeType === "volumeNode";
 
-	useEffect(() => {
-		if (!isContainer) return;
-		const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-		const es = new EventSource(`${apiUrl}/api/container-stats/${rawId}`);
-
-		es.onmessage = (event) => {
-			try {
-				const parsed = JSON.parse(event.data);
-				if (!parsed.error) {
-					setStats(parsed);
-				}
-			} catch (_e) {}
-		};
-
-		return () => {
-			es.close();
-		};
-	}, [isContainer, rawId]);
-
-	const {
-		data,
-		isLoading: dataLoading,
-		error: dataError,
-	} = useQuery({
-		queryKey: ["inspect", nodeType, rawId],
-		queryFn: async () => {
-			const res = await api.get(`/api/inspect/${nodeType}/${rawId}`);
-			if (res.data?.error) throw new Error(res.data.error);
-			return res.data;
-		},
-	});
-
-	const { data: systemDf } = useQuery({
-		queryKey: ["system-df"],
-		queryFn: async () => {
-			const res = await api.get(`/api/system/df`);
-			return res.data;
-		},
-		enabled: nodeType === "containerNode" || nodeType === "volumeNode",
-	});
+	const { stats, data, dataLoading, dataError, systemDf } = useNodeStats(
+		nodeType,
+		rawId,
+		isContainer,
+	);
 
 	const loading = dataLoading;
 	const error = dataError ? dataError.message : null;
@@ -164,133 +86,30 @@ export function NodeDetailsSheet({
 				</div>
 				{/* Header Section */}
 				<div className="px-6 py-4 pb-0 border-b border-border bg-card/95 backdrop-blur z-10 shrink-0">
-					<div className="flex items-start justify-between">
-						<div>
-							<h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-								{isContainer ? (
-									<Box
-										className={`h-5 w-5 ${data?.State?.Running ? "text-green-500" : "text-primary"}`}
-									/>
-								) : isVolume ? (
-									<Database className="h-5 w-5 text-primary" />
-								) : nodeType === "networkNode" ? (
-									<Network className="h-5 w-5 text-primary" />
-								) : (
-									<Info className="h-5 w-5 text-primary" />
-								)}
-								<span className="truncate max-w-[400px]">{nodeName}</span>
-								<span className="text-xs bg-white/10 px-2 py-0.5 rounded-full text-white/70 ml-2">
-									{nodeType.replace("Node", "")}
-								</span>
-							</h2>
-							{loading ? (
-								<div className="h-4 w-64 bg-white/5 animate-pulse rounded mt-2" />
-							) : (
-								<NodeShortInfo
-									data={data}
-									nodeType={nodeType}
-									isContainer={isContainer}
-									systemDf={systemDf}
-									stats={stats}
-									onOpenNode={onOpenNode}
-									onClose={onClose}
-								/>
-							)}
-						</div>
-
-						<NodeActionButtons
-							nodeType={nodeType}
-							rawId={rawId}
-							nodeId={nodeId}
-							nodeName={nodeName}
-							data={data}
-							isContainer={isContainer}
-							onClose={onClose}
-							onAutoReopenRequest={onAutoReopenRequest}
-							handleClose={handleClose}
-							setConfirmDialog={setConfirmDialog}
-						/>
-					</div>
-
-					{/* Tabs */}
-					<div className="flex gap-4 mt-4 border-b border-white/5">
-						<button
-							onClick={() => setActiveTab("inspect")}
-							className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
-								activeTab === "inspect"
-									? "border-primary text-foreground"
-									: "border-transparent text-muted-foreground hover:text-foreground"
-							}`}
-						>
-							<div className="flex items-center gap-1.5">
-								<Search className="h-4 w-4" />
-								Inspect
-							</div>
-						</button>
-						{isContainer && (
-							<>
-								<button
-									onClick={() => setActiveTab("logs")}
-									className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
-										activeTab === "logs"
-											? "border-primary text-foreground"
-											: "border-transparent text-muted-foreground hover:text-foreground"
-									}`}
-								>
-									<div className="flex items-center gap-1.5">
-										<Terminal className="h-4 w-4" />
-										Logs
-									</div>
-								</button>
-								<button
-									onClick={() => setActiveTab("attach")}
-									className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
-										activeTab === "attach"
-											? "border-primary text-foreground"
-											: "border-transparent text-muted-foreground hover:text-foreground"
-									}`}
-								>
-									<div className="flex items-center gap-1.5">
-										<Play className="h-4 w-4" />
-										Terminal
-									</div>
-								</button>
-							</>
-						)}
-						{(isVolume || isContainer) && (
-							<button
-								onClick={() => setActiveTab("files")}
-								className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
-									activeTab === "files"
-										? "border-primary text-foreground"
-										: "border-transparent text-muted-foreground hover:text-foreground"
-								}`}
-							>
-								<div className="flex items-center gap-1.5">
-									<Folder className="h-4 w-4" />
-									Files
-									{hasUnsavedChanges && (
-										<div className="w-2 h-2 rounded-full bg-blue-500 ml-1" />
-									)}
-								</div>
-							</button>
-						)}
-						{isContainer && (
-							<button
-								onClick={() => setActiveTab("links")}
-								className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
-									activeTab === "links"
-										? "border-primary text-foreground"
-										: "border-transparent text-muted-foreground hover:text-foreground"
-								}`}
-							>
-								<div className="flex items-center gap-1.5">
-									<Link className="h-4 w-4" />
-									Links
-								</div>
-							</button>
-						)}
-					</div>
+					<NodeDetailsHeader
+						nodeType={nodeType}
+						nodeId={nodeId}
+						nodeName={nodeName}
+						rawId={rawId}
+						isContainer={isContainer}
+						isVolume={isVolume}
+						loading={loading}
+						data={data}
+						systemDf={systemDf}
+						stats={stats}
+						onOpenNode={onOpenNode}
+						onClose={onClose}
+						onAutoReopenRequest={onAutoReopenRequest}
+						handleClose={handleClose}
+						setConfirmDialog={setConfirmDialog}
+					/>
+					<NodeDetailsTabs
+						activeTab={activeTab}
+						setActiveTab={setActiveTab}
+						isContainer={isContainer}
+						isVolume={isVolume}
+						hasUnsavedChanges={hasUnsavedChanges}
+					/>
 				</div>
 
 				{/* Content Section */}

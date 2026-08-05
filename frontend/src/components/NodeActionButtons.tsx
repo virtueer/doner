@@ -34,12 +34,39 @@ export function NodeActionButtons({
 			return { action, data: res.data };
 		},
 		onSuccess: ({ action }) => {
+			// Optimistically update the graph to reflect the new state instantly
+			queryClient.setQueryData(["network-graph"], (oldData: any) => {
+				if (!oldData) return oldData;
+				return {
+					...oldData,
+					nodes: oldData.nodes.map((n: any) => {
+						if (n.id === nodeId) {
+							const isRunning = action === "start" || action === "restart";
+							return {
+								...n,
+								data: {
+									...n.data,
+									state: isRunning ? "running" : "exited",
+									State: {
+										...(n.data.State || {}),
+										Running: isRunning,
+									},
+								},
+							};
+						}
+						return n;
+					}),
+				};
+			});
+
 			if (action === "restart" || action === "start") {
 				if (onAutoReopenRequest) {
 					onAutoReopenRequest(nodeId, nodeName, nodeType);
 				}
-				onClose();
 			}
+			onClose();
+
+			// Still invalidate to ensure we eventually sync with the real state
 			queryClient.invalidateQueries({ queryKey: ["network-graph"] });
 		},
 		onError: (err: any, action) => {
@@ -55,6 +82,18 @@ export function NodeActionButtons({
 			return res.data;
 		},
 		onSuccess: () => {
+			// Optimistically remove the node from the graph
+			queryClient.setQueryData(["network-graph"], (oldData: any) => {
+				if (!oldData) return oldData;
+				return {
+					...oldData,
+					nodes: oldData.nodes.filter((n: any) => n.id !== nodeId),
+					edges: oldData.edges.filter(
+						(e: any) => e.source !== nodeId && e.target !== nodeId,
+					),
+				};
+			});
+
 			setConfirmDialog(null);
 			onClose();
 			queryClient.invalidateQueries({ queryKey: ["network-graph"] });
@@ -92,6 +131,19 @@ export function NodeActionButtons({
 		});
 	};
 
+	const handleStopClick = () => {
+		setConfirmDialog({
+			isOpen: true,
+			title: "Stop Container",
+			message: "Are you sure you want to stop this container?",
+			onConfirm: () => {
+				setConfirmDialog(null);
+				actionMutation.mutate("stop");
+			},
+			onCancel: () => setConfirmDialog(null),
+		});
+	};
+
 	return (
 		<div className="flex items-center gap-2 mt-4 sm:mt-0">
 			{isContainer && (
@@ -101,7 +153,7 @@ export function NodeActionButtons({
 						variant="default"
 						onClick={() => actionMutation.mutate("start")}
 						disabled={data?.State?.Running || actionMutation.isPending}
-						className="bg-green-600 text-white hover:bg-green-700 border border-black w-16"
+						className="px-3 py-1.5 h-auto text-xs font-semibold rounded-md border transition-all bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-500 hover:border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] disabled:opacity-50 disabled:shadow-none w-16"
 					>
 						{actionMutation.isPending && actionMutation.variables === "start"
 							? "..."
@@ -110,9 +162,9 @@ export function NodeActionButtons({
 					<Button
 						size="sm"
 						variant="default"
-						onClick={() => actionMutation.mutate("stop")}
+						onClick={handleStopClick}
 						disabled={!data?.State?.Running || actionMutation.isPending}
-						className="bg-red-600 text-white hover:bg-red-700 border border-black w-16"
+						className="px-3 py-1.5 h-auto text-xs font-semibold rounded-md border transition-all bg-red-600 border-red-500 text-white hover:bg-red-500 hover:border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)] hover:shadow-[0_0_20px_rgba(239,68,68,0.4)] disabled:opacity-50 disabled:shadow-none w-16"
 					>
 						{actionMutation.isPending && actionMutation.variables === "stop"
 							? "..."
@@ -123,7 +175,7 @@ export function NodeActionButtons({
 						variant="default"
 						onClick={() => actionMutation.mutate("restart")}
 						disabled={actionMutation.isPending}
-						className="bg-blue-600 text-white hover:bg-blue-700 border border-black w-20"
+						className="px-3 py-1.5 h-auto text-xs font-semibold rounded-md border transition-all bg-blue-600 border-blue-500 text-white hover:bg-blue-500 hover:border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.2)] hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] disabled:opacity-50 disabled:shadow-none w-20"
 					>
 						{actionMutation.isPending && actionMutation.variables === "restart"
 							? "..."

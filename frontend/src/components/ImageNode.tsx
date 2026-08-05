@@ -1,3 +1,4 @@
+import { Handle, Position } from "@xyflow/react";
 import { Layers } from "lucide-react";
 
 export function ImageNode({ data }: { data: any }) {
@@ -26,6 +27,12 @@ export function ImageNode({ data }: { data: any }) {
 					: "0 4px 20px rgba(100, 116, 139, 0.08)",
 			}}
 		>
+			<Handle
+				type="source"
+				position={Position.Right}
+				id="img-out"
+				style={{ display: "none" }}
+			/>
 			<div className="flex flex-col">
 				{/* Header */}
 				<div
