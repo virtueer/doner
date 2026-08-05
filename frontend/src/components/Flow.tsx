@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	addEdge,
 	Background,
@@ -11,6 +12,7 @@ import {
 	useReactFlow,
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { api } from "@/lib/api";
 import { autoLayout, resolveOverlaps } from "@/lib/layoutUtils";
 import { toast } from "@/lib/toast";
 import { ContainerNode } from "./ContainerNode";
@@ -30,10 +32,9 @@ const nodeTypes = {
 };
 
 export function Flow() {
+	const queryClient = useQueryClient();
 	const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
 	const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 	const searchInputRef = useRef<HTMLInputElement>(null);
 	const { fitView } = useReactFlow();
@@ -55,6 +56,57 @@ export function Flow() {
 		name: string;
 		type: string;
 	} | null>(null);
+
+	// Fetch graph data using TanStack Query
+	const {
+		data: graphData,
+		isLoading,
+		error: queryError,
+	} = useQuery({
+		queryKey: ["network-graph"],
+		queryFn: async () => {
+			const res = await api.get("/api/network-graph");
+			return res.data;
+		},
+		refetchInterval: 10000, // Poll every 10s automatically
+	});
+
+	// Sync fetched graphData into ReactFlow nodes/edges state
+	useEffect(() => {
+		if (!graphData) return;
+		rawDataRef.current = graphData;
+
+		setNodes((currentNodes) => {
+			const savedStateStr = localStorage.getItem("flow-nodes-state");
+			const savedState = savedStateStr ? JSON.parse(savedStateStr) : [];
+			const savedNodes = new Map(savedState.map((n: any) => [n.id, n]));
+
+			const existingNodes = new Map(currentNodes.map((n: any) => [n.id, n]));
+
+			const lockedIds = new Set<string>();
+
+			const resolvedNodes = graphData.nodes.map((newNode: any) => {
+				const existing =
+					existingNodes.get(newNode.id) || savedNodes.get(newNode.id);
+				if (existing) {
+					lockedIds.add(newNode.id);
+					return {
+						...newNode,
+						position: existing.position,
+					};
+				}
+				return newNode;
+			});
+
+			return resolveOverlaps(resolvedNodes, lockedIds);
+		});
+
+		setEdges(
+			graphData.edges.map((e: any) =>
+				e.sourceHandle === "img-out" ? { ...e, hidden: true } : e,
+			),
+		);
+	}, [graphData, setNodes, setEdges]);
 
 	useEffect(() => {
 		if (isSearchFocused) {
@@ -144,58 +196,8 @@ export function Flow() {
 		setHighlightedNodeId(null);
 	}, []);
 
-	const fetchGraphData = useCallback(async () => {
-		try {
-			setLoading(true);
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-			const res = await fetch(`${apiUrl}/api/network-graph`);
-			if (!res.ok) throw new Error("Failed to fetch graph data");
-			const data = await res.json();
-			rawDataRef.current = data;
-
-			setNodes((currentNodes) => {
-				const savedStateStr = localStorage.getItem("flow-nodes-state");
-				const savedState = savedStateStr ? JSON.parse(savedStateStr) : [];
-				const savedNodes = new Map(savedState.map((n: any) => [n.id, n]));
-
-				const existingNodes = new Map(currentNodes.map((n: any) => [n.id, n]));
-
-				const lockedIds = new Set<string>();
-
-				const resolvedNodes = data.nodes.map((newNode: any) => {
-					const existing =
-						existingNodes.get(newNode.id) || savedNodes.get(newNode.id);
-					if (existing) {
-						lockedIds.add(newNode.id);
-						return {
-							...newNode,
-							position: existing.position,
-						};
-					}
-					return newNode;
-				});
-
-				// Resolve overlaps so new nodes (not locked) slide into nice spots automatically
-				return resolveOverlaps(resolvedNodes, lockedIds);
-			});
-			setEdges(
-				data.edges.map((e: any) =>
-					e.sourceHandle === "img-out" ? { ...e, hidden: true } : e,
-				),
-			);
-			setError(null);
-		} catch (err: any) {
-			setError(err.message);
-		} finally {
-			setLoading(false);
-		}
-	}, [setNodes, setEdges]);
-
+	// Global Docker events stream
 	useEffect(() => {
-		fetchGraphData();
-		const interval = setInterval(fetchGraphData, 10000);
-
-		// Global Docker events stream
 		const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 		const es = new EventSource(`${apiUrl}/api/events`);
 		es.onmessage = (event) => {
@@ -215,7 +217,7 @@ export function Flow() {
 
 				if (action === "start" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} started`, "success");
-					fetchGraphData();
+					queryClient.invalidateQueries({ queryKey: ["network-graph"] });
 					if (pendingReopenNodeRef.current) {
 						const pendingId = pendingReopenNodeRef.current.id.replace(
 							"cont-",
@@ -232,22 +234,21 @@ export function Flow() {
 					}
 				} else if (action === "die" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} stopped`, "error");
-					fetchGraphData();
+					queryClient.invalidateQueries({ queryKey: ["network-graph"] });
 				} else if (action === "destroy" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} removed`, "error");
-					fetchGraphData();
+					queryClient.invalidateQueries({ queryKey: ["network-graph"] });
 				} else if (action === "destroy" && type === "volume") {
 					toast(`Volume ${e.Actor?.Attributes?.name} removed`, "error");
-					fetchGraphData();
+					queryClient.invalidateQueries({ queryKey: ["network-graph"] });
 				}
 			} catch (_err) {}
 		};
 
 		return () => {
-			clearInterval(interval);
 			es.close();
 		};
-	}, [fetchGraphData]);
+	}, [queryClient]);
 
 	// Save nodes positions when they change (only end positions to avoid spam)
 	useEffect(() => {
@@ -409,18 +410,20 @@ export function Flow() {
 					className="flex items-center gap-2 m-4 bg-card/95 backdrop-blur-md p-1.5 rounded-xl border border-white/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)] ring-1 ring-white/10"
 				>
 					<FlowToolbar
-						loading={loading}
+						loading={isLoading}
 						handleAutoLayout={handleAutoLayout}
-						fetchGraphData={fetchGraphData}
+						fetchGraphData={() =>
+							queryClient.invalidateQueries({ queryKey: ["network-graph"] })
+						}
 						setShowEvents={setShowEvents}
 					/>
 				</Panel>
 
 				{/* Error toast */}
-				{error && (
+				{queryError && (
 					<Panel position="top-center" className="m-3">
 						<div className="bg-destructive/10 text-destructive border border-destructive px-4 py-2 rounded-md shadow-lg text-sm">
-							{error}
+							{queryError.message}
 						</div>
 					</Panel>
 				)}

@@ -1,38 +1,40 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 
 export function LinksTab({ containerId }: { containerId: string }) {
 	const [links, setLinks] = useState<{ title: string; url: string }[]>([]);
-	const [linksLoading, setLinksLoading] = useState(false);
+	const queryClient = useQueryClient();
+
+	const { data: remoteLinks, isLoading: linksLoading } = useQuery({
+		queryKey: ["links", containerId],
+		queryFn: async () => {
+			const res = await api.get(`/api/containers/${containerId}/links`);
+			return res.data || [];
+		},
+	});
 
 	useEffect(() => {
-		setLinksLoading(true);
-		const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-		fetch(`${apiUrl}/api/containers/${containerId}/links`)
-			.then((res) => res.json())
-			.then((data) => setLinks(data || []))
-			.catch(console.error)
-			.finally(() => setLinksLoading(false));
-	}, [containerId]);
-
-	const saveLinks = async (newLinks: { title: string; url: string }[]) => {
-		try {
-			setLinksLoading(true);
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-			const res = await fetch(`${apiUrl}/api/containers/${containerId}/links`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ links: newLinks }),
-			});
-			if (res.ok) {
-				setLinks(newLinks);
-			}
-		} catch (err) {
-			console.error("Failed to save links:", err);
-		} finally {
-			setLinksLoading(false);
+		if (remoteLinks) {
+			setLinks(remoteLinks);
 		}
-	};
+	}, [remoteLinks]);
+
+	const saveLinksMutation = useMutation({
+		mutationFn: async (newLinks: { title: string; url: string }[]) => {
+			const res = await api.post(`/api/containers/${containerId}/links`, {
+				links: newLinks,
+			});
+			return res.data;
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["links", containerId] });
+		},
+		onError: (err) => {
+			console.error("Failed to save links:", err);
+		},
+	});
 
 	return (
 		<div className="flex-1 overflow-y-auto p-6 scroll-smooth bg-[#1e1e1e]">
@@ -114,10 +116,11 @@ export function LinksTab({ containerId }: { containerId: string }) {
 
 						<div className="pt-4 border-t border-white/10 flex justify-end">
 							<button
-								onClick={() => saveLinks(links)}
-								className="px-4 py-2 bg-blue-500/10 text-blue-400 text-sm font-medium rounded-md hover:bg-blue-500/20 transition-colors"
+								onClick={() => saveLinksMutation.mutate(links)}
+								disabled={saveLinksMutation.isPending}
+								className="px-4 py-2 bg-blue-500/10 text-blue-400 text-sm font-medium rounded-md hover:bg-blue-500/20 transition-colors disabled:opacity-50"
 							>
-								Save Links
+								{saveLinksMutation.isPending ? "Saving..." : "Save Links"}
 							</button>
 						</div>
 					</div>

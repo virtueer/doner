@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { FileBrowser } from "./FileBrowser";
 
 export function FileBrowserScreen({
@@ -10,23 +11,16 @@ export function FileBrowserScreen({
 	nodeName: string;
 	type: "volume" | "container";
 }) {
-	const [mounts, setMounts] = useState<any[]>([]);
+	const rawId = apiPrefix.split("/").pop() || "";
 
-	useEffect(() => {
-		if (type !== "container") return;
-		const fetchMounts = async () => {
-			try {
-				const rawId = apiPrefix.split("/").pop() || "";
-				const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-				const res = await fetch(`${apiUrl}/api/inspect/containerNode/${rawId}`);
-				if (res.ok) {
-					const json = await res.json();
-					if (json.Mounts) setMounts(json.Mounts);
-				}
-			} catch (_e) {}
-		};
-		fetchMounts();
-	}, [type, apiPrefix]);
+	const { data: mounts = [] } = useQuery({
+		queryKey: ["inspect", "containerNode", rawId],
+		queryFn: async () => {
+			const res = await api.get(`/api/inspect/containerNode/${rawId}`);
+			return res.data?.Mounts || [];
+		},
+		enabled: type === "container",
+	});
 
 	return (
 		<div className="w-full h-screen dark text-foreground overflow-hidden flex flex-col bg-[#1e1e1e]">

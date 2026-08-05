@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import {
 	Box,
 	Database,
@@ -10,6 +11,7 @@ import {
 	Terminal,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { api } from "@/lib/api";
 import { AttachTab } from "./AttachTab";
 import { type ConfirmDialogState, ConfirmModal } from "./ConfirmModal";
 import { ContainerLogs } from "./ContainerLogs";
@@ -35,14 +37,10 @@ export function NodeDetailsSheet({
 	onAutoReopenRequest?: (id: string, name: string, type: string) => void;
 	onOpenNode?: (id: string, name: string, type: string) => void;
 }) {
-	const [data, setData] = useState<any>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
 	const [activeTab, setActiveTab] = useState<
 		"inspect" | "logs" | "attach" | "files" | "links"
 	>("inspect");
 	const [stats, setStats] = useState<any>(null);
-	const [systemDf, setSystemDf] = useState<any>(null);
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 	const [sheetWidth, setSheetWidth] = useState(() => window.innerWidth * 0.75);
 
@@ -123,43 +121,30 @@ export function NodeDetailsSheet({
 		};
 	}, [isContainer, rawId]);
 
-	useEffect(() => {
-		const fetchData = async () => {
-			try {
-				setLoading(true);
-				const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-				const res = await fetch(`${apiUrl}/api/inspect/${nodeType}/${rawId}`);
-				if (!res.ok) throw new Error("Failed to fetch inspect data");
-				const json = await res.json();
+	const {
+		data,
+		isLoading: dataLoading,
+		error: dataError,
+	} = useQuery({
+		queryKey: ["inspect", nodeType, rawId],
+		queryFn: async () => {
+			const res = await api.get(`/api/inspect/${nodeType}/${rawId}`);
+			if (res.data?.error) throw new Error(res.data.error);
+			return res.data;
+		},
+	});
 
-				if (json.error) {
-					throw new Error(json.error);
-				}
+	const { data: systemDf } = useQuery({
+		queryKey: ["system-df"],
+		queryFn: async () => {
+			const res = await api.get(`/api/system/df`);
+			return res.data;
+		},
+		enabled: nodeType === "containerNode" || nodeType === "volumeNode",
+	});
 
-				setData(json);
-
-				if (nodeType === "containerNode" || nodeType === "volumeNode") {
-					fetch(`${apiUrl}/api/system/df`)
-						.then((dfRes) => {
-							if (dfRes.ok) {
-								return dfRes.json();
-							}
-							return null;
-						})
-						.then((dfJson) => {
-							if (dfJson) setSystemDf(dfJson);
-						})
-						.catch(console.error);
-				}
-			} catch (err: any) {
-				setError(err.message);
-			} finally {
-				setLoading(false);
-			}
-		};
-
-		fetchData();
-	}, [nodeType, rawId]);
+	const loading = dataLoading;
+	const error = dataError ? dataError.message : null;
 
 	return (
 		<>

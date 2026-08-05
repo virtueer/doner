@@ -18,6 +18,7 @@ import {
 	X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { api } from "@/lib/api";
 
 const getLanguageFromExtension = (filename: string) => {
 	const ext = filename.split(".").pop()?.toLowerCase() || "";
@@ -172,12 +173,10 @@ export function FileBrowser({
 				setLoading(true);
 				setError(null);
 				setViewFile(null);
-				const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-				const res = await fetch(
-					`${apiUrl}${apiPrefix}/files?path=${encodeURIComponent(path)}`,
+				const res = await api.get(
+					`${apiPrefix}/files?path=${encodeURIComponent(path)}`,
 				);
-				if (!res.ok) throw new Error("Failed to fetch files");
-				const data = await res.json();
+				const data = res.data;
 				setFiles(data);
 				setCurrentPath(path);
 				setPathInput(path.startsWith("/") ? path : `/${path}`);
@@ -211,12 +210,10 @@ export function FileBrowser({
 				setViewFile(file.name);
 				setViewFilePath(file.path);
 				setIsEditing(false);
-				const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-				const res = await fetch(
-					`${apiUrl}${apiPrefix}/files/read?path=${encodeURIComponent(file.path)}`,
+				const res = await api.get(
+					`${apiPrefix}/files/read?path=${encodeURIComponent(file.path)}`,
 				);
-				if (!res.ok) throw new Error("Failed to read file");
-				const data = await res.json();
+				const data = res.data;
 				setFileContent(data.content);
 				setEditContent(data.content);
 				setSelectedLanguage(getLanguageFromExtension(file.name));
@@ -232,18 +229,10 @@ export function FileBrowser({
 		if (!viewFilePath) return;
 		try {
 			setSaving(true);
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-			const res = await fetch(
-				`${apiUrl}${apiPrefix}/files/write?path=${encodeURIComponent(viewFilePath)}`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({ content: editContent }),
-				},
+			await api.post(
+				`${apiPrefix}/files/write?path=${encodeURIComponent(viewFilePath)}`,
+				{ content: editContent },
 			);
-			if (!res.ok) throw new Error("Failed to write file");
 			setFileContent(editContent);
 			setIsEditing(false);
 		} catch (err: any) {
@@ -364,7 +353,6 @@ export function FileBrowser({
 		}
 
 		try {
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 			const safeCurrentPath = currentPath.endsWith("/")
 				? currentPath
 				: `${currentPath}/`;
@@ -376,15 +364,10 @@ export function FileBrowser({
 			const destPath =
 				currentPath === "/" ? pasteName : safeCurrentPath + pasteName;
 
-			const res = await fetch(`${apiUrl}${apiPrefix}/files/copy`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ srcPath: globalClipboard.path, destPath }),
+			await api.post(`${apiPrefix}/files/copy`, {
+				srcPath: globalClipboard.path,
+				destPath,
 			});
-			if (!res.ok) {
-				const errJson = await res.json().catch(() => ({}));
-				throw new Error(errJson.message || "Failed to copy file");
-			}
 			fetchFiles(currentPath);
 		} catch (err: any) {
 			await showAlert("Error", `Paste failed: ${err.message}`);
@@ -395,18 +378,13 @@ export function FileBrowser({
 		const name = await showPrompt("New Folder", "New folder name:");
 		if (!name) return;
 		try {
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 			const safeCurrentPath = currentPath.endsWith("/")
 				? currentPath
 				: `${currentPath}/`;
 			const destPath = currentPath === "/" ? name : safeCurrentPath + name;
-			const res = await fetch(
-				`${apiUrl}${apiPrefix}/files/mkdir?path=${encodeURIComponent(destPath)}`,
-				{
-					method: "POST",
-				},
+			await api.post(
+				`${apiPrefix}/files/mkdir?path=${encodeURIComponent(destPath)}`,
 			);
-			if (!res.ok) throw new Error("Failed to create directory");
 			fetchFiles(currentPath);
 		} catch (err: any) {
 			await showAlert("Error", `Create folder failed: ${err.message}`);
@@ -417,20 +395,14 @@ export function FileBrowser({
 		const name = await showPrompt("New File", "New file name:");
 		if (!name) return;
 		try {
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 			const safeCurrentPath = currentPath.endsWith("/")
 				? currentPath
 				: `${currentPath}/`;
 			const destPath = currentPath === "/" ? name : safeCurrentPath + name;
-			const res = await fetch(
-				`${apiUrl}${apiPrefix}/files/write?path=${encodeURIComponent(destPath)}`,
-				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ content: "" }),
-				},
+			await api.post(
+				`${apiPrefix}/files/write?path=${encodeURIComponent(destPath)}`,
+				{ content: "" },
 			);
-			if (!res.ok) throw new Error("Failed to create file");
 			fetchFiles(currentPath);
 		} catch (err: any) {
 			await showAlert("Error", `Create file failed: ${err.message}`);
@@ -441,18 +413,15 @@ export function FileBrowser({
 		const newName = await showPrompt("Rename", "Enter new name:", file.name);
 		if (!newName || newName === file.name) return;
 		try {
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 			const safeCurrentPath = currentPath.endsWith("/")
 				? currentPath
 				: `${currentPath}/`;
 			const destPath =
 				currentPath === "/" ? newName : safeCurrentPath + newName;
-			const res = await fetch(`${apiUrl}${apiPrefix}/files/rename`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ srcPath: file.path, destPath }),
+			await api.post(`${apiPrefix}/files/rename`, {
+				srcPath: file.path,
+				destPath,
 			});
-			if (!res.ok) throw new Error("Failed to rename file");
 			fetchFiles(currentPath);
 		} catch (err: any) {
 			await showAlert("Error", `Rename failed: ${err.message}`);
@@ -468,14 +437,9 @@ export function FileBrowser({
 		)
 			return;
 		try {
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-			const res = await fetch(
-				`${apiUrl}${apiPrefix}/files/delete?path=${encodeURIComponent(file.path)}`,
-				{
-					method: "POST",
-				},
+			await api.post(
+				`${apiPrefix}/files/delete?path=${encodeURIComponent(file.path)}`,
 			);
-			if (!res.ok) throw new Error("Failed to delete file");
 			fetchFiles(currentPath);
 		} catch (err: any) {
 			await showAlert("Error", `Delete failed: ${err.message}`);

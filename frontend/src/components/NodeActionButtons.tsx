@@ -1,6 +1,7 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Trash2, X } from "lucide-react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
 
 export function NodeActionButtons({
 	nodeType,
@@ -25,30 +26,46 @@ export function NodeActionButtons({
 	handleClose: () => void;
 	setConfirmDialog: (dialog: any) => void;
 }) {
-	const [actionLoading, setActionLoading] = useState<
-		"start" | "stop" | "restart" | null
-	>(null);
-	const [deleteLoading, setDeleteLoading] = useState(false);
+	const queryClient = useQueryClient();
 
-	const handleAction = async (action: "start" | "stop" | "restart") => {
-		try {
-			setActionLoading(action);
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-			await fetch(`${apiUrl}/api/containers/${rawId}/${action}`, {
-				method: "POST",
-			});
+	const actionMutation = useMutation({
+		mutationFn: async (action: "start" | "stop" | "restart") => {
+			const res = await api.post(`/api/containers/${rawId}/${action}`);
+			return { action, data: res.data };
+		},
+		onSuccess: ({ action }) => {
 			if (action === "restart" || action === "start") {
 				if (onAutoReopenRequest) {
 					onAutoReopenRequest(nodeId, nodeName, nodeType);
 				}
 				onClose();
 			}
-		} catch (err) {
+			queryClient.invalidateQueries({ queryKey: ["network-graph"] });
+		},
+		onError: (err: any, action) => {
 			console.error(`Failed to ${action} container:`, err);
-		} finally {
-			setActionLoading(null);
-		}
-	};
+		},
+	});
+
+	const deleteMutation = useMutation({
+		mutationFn: async ({ force }: { force: boolean }) => {
+			const res = await api.delete(
+				`/api/delete/${nodeType}/${encodeURIComponent(rawId)}${force ? "?force=true" : ""}`,
+			);
+			return res.data;
+		},
+		onSuccess: () => {
+			setConfirmDialog(null);
+			onClose();
+			queryClient.invalidateQueries({ queryKey: ["network-graph"] });
+		},
+		onError: (err: any) => {
+			console.error("Delete failed:", err);
+			const message = err.response?.data?.message || err.message;
+			alert(`Delete failed: ${message}`);
+			setConfirmDialog(null);
+		},
+	});
 
 	const handleDeleteClick = () => {
 		const isContainerOrImage = isContainer || nodeType === "imageNode";
@@ -66,29 +83,7 @@ export function NodeActionButtons({
 					isDeleteStep2: true,
 					showForceOption: isContainerOrImage,
 					onConfirm: async (force: boolean) => {
-						try {
-							setDeleteLoading(true);
-							const apiUrl =
-								import.meta.env.VITE_API_URL || "http://localhost:3000";
-							const res = await fetch(
-								`${apiUrl}/api/delete/${nodeType}/${encodeURIComponent(rawId)}${force ? "?force=true" : ""}`,
-								{
-									method: "DELETE",
-								},
-							);
-							if (!res.ok) {
-								const err = await res.json().catch(() => ({}));
-								throw new Error(err.message || "Deletion failed");
-							}
-							setConfirmDialog(null);
-							onClose();
-						} catch (err: any) {
-							console.error("Delete failed:", err);
-							alert(`Delete failed: ${err.message}`);
-							setConfirmDialog(null);
-						} finally {
-							setDeleteLoading(false);
-						}
+						deleteMutation.mutate({ force });
 					},
 					onCancel: () => setConfirmDialog(null),
 				});
@@ -104,39 +99,45 @@ export function NodeActionButtons({
 					<Button
 						size="sm"
 						variant="default"
-						onClick={() => handleAction("start")}
-						disabled={data?.State?.Running || actionLoading !== null}
+						onClick={() => actionMutation.mutate("start")}
+						disabled={data?.State?.Running || actionMutation.isPending}
 						className="bg-green-600 text-white hover:bg-green-700 border border-black w-16"
 					>
-						{actionLoading === "start" ? "..." : "Start"}
+						{actionMutation.isPending && actionMutation.variables === "start"
+							? "..."
+							: "Start"}
 					</Button>
 					<Button
 						size="sm"
 						variant="default"
-						onClick={() => handleAction("stop")}
-						disabled={!data?.State?.Running || actionLoading !== null}
+						onClick={() => actionMutation.mutate("stop")}
+						disabled={!data?.State?.Running || actionMutation.isPending}
 						className="bg-red-600 text-white hover:bg-red-700 border border-black w-16"
 					>
-						{actionLoading === "stop" ? "..." : "Stop"}
+						{actionMutation.isPending && actionMutation.variables === "stop"
+							? "..."
+							: "Stop"}
 					</Button>
 					<Button
 						size="sm"
 						variant="default"
-						onClick={() => handleAction("restart")}
-						disabled={actionLoading !== null}
+						onClick={() => actionMutation.mutate("restart")}
+						disabled={actionMutation.isPending}
 						className="bg-blue-600 text-white hover:bg-blue-700 border border-black w-20"
 					>
-						{actionLoading === "restart" ? "..." : "Restart"}
+						{actionMutation.isPending && actionMutation.variables === "restart"
+							? "..."
+							: "Restart"}
 					</Button>
 				</div>
 			)}
 			<button
 				onClick={handleDeleteClick}
-				disabled={deleteLoading}
+				disabled={deleteMutation.isPending}
 				className="p-2 ml-2 mr-2 rounded-md hover:bg-red-500/20 text-red-500/70 hover:text-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				title="Delete Resource"
 			>
-				{deleteLoading ? "..." : <Trash2 className="h-5 w-5" />}
+				{deleteMutation.isPending ? "..." : <Trash2 className="h-5 w-5" />}
 			</button>
 			<button
 				onClick={handleClose}
