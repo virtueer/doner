@@ -104,7 +104,25 @@ export class DockerService implements OnModuleDestroy {
 		}
 
 		try {
-			const container = await this.docker.createContainer(options);
+			let container: any;
+			try {
+				container = await this.docker.createContainer(options);
+			} catch (err: any) {
+				if (err.statusCode === 404 && err.message.includes("No such image")) {
+					await new Promise((resolve, reject) => {
+						this.docker.pull("alpine:latest", (pullErr: any, stream: any) => {
+							if (pullErr) return reject(pullErr);
+							this.docker.modem.followProgress(stream, (followErr: any) => {
+								if (followErr) return reject(followErr);
+								resolve(true);
+							});
+						});
+					});
+					container = await this.docker.createContainer(options);
+				} else {
+					throw err;
+				}
+			}
 			await container.start();
 
 			this.activeHelpers.set(targetId, {

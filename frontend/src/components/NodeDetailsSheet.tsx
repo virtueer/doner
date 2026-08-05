@@ -1,299 +1,23 @@
 import {
 	Box,
-	Check,
-	Copy,
 	Database,
-	ExternalLink,
 	Folder,
 	Info,
 	Link,
 	Network,
 	Play,
-	Plus,
 	Search,
 	Terminal,
 	Trash2,
 	X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { renderAnsiLine } from "@/lib/ansi";
-import {
-	detectLogLevel,
-	highlightLog,
-	renderJsonHighlight,
-} from "@/lib/logHighlight";
-import { AttachTerminal } from "./AttachTerminal";
+import { Button } from "@/components/ui/button";
+import { AttachTab } from "./AttachTab";
+import { ContainerLogs } from "./ContainerLogs";
 import { FileBrowser } from "./FileBrowser";
-
-// --- Sub-component for Logs Streaming ---
-function LogLine({
-	line,
-	index,
-	showTimestamps,
-	highlightEnabled,
-}: {
-	line: string;
-	index: number;
-	showTimestamps: boolean;
-	highlightEnabled: boolean;
-}) {
-	const [isExpanded, setIsExpanded] = useState(false);
-	const [isOverflowing, setIsOverflowing] = useState(false);
-	const contentRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		const el = contentRef.current;
-		if (!el) return;
-		setIsOverflowing(el.scrollWidth > el.clientWidth);
-	}, []);
-
-	const spaceIdx = line.indexOf(" ");
-	let timestamp = "";
-	let content = line;
-	if (spaceIdx > 10 && spaceIdx <= 35) {
-		const possibleTs = line.substring(0, spaceIdx);
-		if (/^\d{4}-\d{2}-\d{2}T/.test(possibleTs)) {
-			timestamp = possibleTs;
-			content = line.substring(spaceIdx + 1);
-		}
-	}
-
-	const canExpand = isOverflowing;
-	const levelInfo = highlightEnabled ? detectLogLevel(line) : null;
-
-	return (
-		<div
-			onClick={canExpand ? () => setIsExpanded(!isExpanded) : undefined}
-			onKeyDown={
-				canExpand
-					? (e) => {
-							if (e.key === "Enter" || e.key === " ") {
-								e.preventDefault();
-								setIsExpanded(!isExpanded);
-							}
-						}
-					: undefined
-			}
-			role={canExpand ? "button" : undefined}
-			tabIndex={canExpand ? 0 : undefined}
-			className={[
-				"sheet-log-line group flex items-start gap-0 border-b border-white/[0.04] transition-all duration-150",
-				canExpand ? "cursor-pointer" : "",
-				isExpanded
-					? "bg-white/[0.06] shadow-[inset_3px_0_0_hsl(217,90%,60%)]"
-					: "",
-			]
-				.filter(Boolean)
-				.join(" ")}
-			style={{
-				...(levelInfo && !isExpanded
-					? {
-							background: levelInfo.bg,
-							boxShadow: `inset 2px 0 0 ${levelInfo.color}`,
-						}
-					: {}),
-			}}
-		>
-			{/* Line number */}
-			<div className="min-w-[44px] text-right pr-3 py-[5px] pl-2 text-[11px] text-white/15 select-none border-r border-white/[0.04] shrink-0 font-mono">
-				{index + 1}
-			</div>
-
-			{/* Expand indicator — only show if expandable */}
-			{canExpand ? (
-				<div
-					className="min-w-[20px] py-[5px] text-center text-[9px] text-white/20 select-none shrink-0 transition-transform duration-200"
-					style={{
-						transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
-					}}
-				>
-					▶
-				</div>
-			) : (
-				<div className="min-w-[20px] py-[5px] shrink-0" />
-			)}
-
-			{/* Timestamp */}
-			{timestamp && showTimestamps && (
-				<div className="py-[5px] pr-3 text-[11px] text-white/25 select-none shrink-0 whitespace-nowrap font-mono">
-					{timestamp}
-				</div>
-			)}
-
-			{/* Log content */}
-			<div
-				ref={contentRef}
-				className={[
-					"flex-1 py-[5px] pr-4 min-w-0 font-mono text-[12.5px] leading-relaxed text-gray-300",
-					isExpanded
-						? "whitespace-pre-wrap break-all"
-						: "whitespace-nowrap overflow-hidden text-ellipsis",
-				].join(" ")}
-			>
-				{highlightEnabled ? highlightLog(content) : renderAnsiLine(content)}
-			</div>
-		</div>
-	);
-}
-
-function ContainerLogs({
-	containerId,
-	containerName,
-}: {
-	containerId: string;
-	containerName: string;
-}) {
-	const [logs, setLogs] = useState<string[]>([]);
-	const [showTimestamps, setShowTimestamps] = useState(true);
-	const [highlightEnabled, setHighlightEnabled] = useState(true);
-	const logsEndRef = useRef<HTMLDivElement>(null);
-	const eventSourceRef = useRef<EventSource | null>(null);
-	const [autoScroll, setAutoScroll] = useState(true);
-	const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-		const es = new EventSource(`${apiUrl}/api/container-logs/${containerId}`);
-		eventSourceRef.current = es;
-
-		es.onmessage = (event) => {
-			let line: string;
-			try {
-				const parsed = JSON.parse(event.data);
-				line = typeof parsed === "string" ? parsed : String(parsed ?? "");
-			} catch {
-				line = event.data ?? "";
-			}
-			if (line) {
-				setLogs((prev) => {
-					const updated = [...prev, line];
-					return updated.length > 500 ? updated.slice(-500) : updated;
-				});
-			}
-		};
-
-		es.onerror = () => {
-			es.close();
-		};
-
-		return () => {
-			es.close();
-		};
-	}, [containerId]);
-
-	useEffect(() => {
-		if (autoScroll) {
-			logsEndRef.current?.scrollIntoView({ behavior: "auto" });
-		}
-	}, [autoScroll]);
-
-	const handleScroll = useCallback(() => {
-		const el = scrollContainerRef.current;
-		if (!el) return;
-		const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-		setAutoScroll(atBottom);
-	}, []);
-
-	const openTerminalTab = () => {
-		const url = `${window.location.origin}?logs=${encodeURIComponent(containerId)}&name=${encodeURIComponent(containerName)}`;
-		window.open(url, "_blank");
-	};
-
-	return (
-		<div className="flex flex-col h-full bg-[#0f1117] relative">
-			{/* Header */}
-			<div className="flex items-center justify-between px-4 py-2 bg-[#161822] border-b border-white/[0.06] shrink-0">
-				<div className="flex items-center gap-2 text-xs font-mono text-white/40">
-					<span className="inline-block w-[7px] h-[7px] rounded-full bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.5)] animate-pulse" />
-					<span className="text-white/20">$</span> docker logs -f{" "}
-					<span className="text-blue-400/80">{containerName}</span>
-				</div>
-				<div className="flex items-center gap-2">
-					<span className="text-[11px] text-white/20 mr-1 font-mono">
-						{logs.length} lines
-					</span>
-					<button
-						type="button"
-						onClick={() => setShowTimestamps(!showTimestamps)}
-						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium border border-white/[0.08] text-white/40 hover:text-white/70 hover:border-white/20 hover:bg-white/[0.04] transition-all"
-					>
-						{showTimestamps ? "Hide Timestamps" : "Show Timestamps"}
-					</button>
-					<button
-						type="button"
-						onClick={() => setHighlightEnabled(!highlightEnabled)}
-						className={[
-							"flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-all",
-							highlightEnabled
-								? "border-blue-500/30 text-blue-400 bg-blue-500/[0.08] hover:bg-blue-500/[0.15]"
-								: "border-white/[0.08] text-white/40 hover:text-white/70 hover:border-white/20 hover:bg-white/[0.04]",
-						].join(" ")}
-					>
-						{highlightEnabled ? "Highlighting" : "Highlight"}
-					</button>
-					<button
-						type="button"
-						onClick={openTerminalTab}
-						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium bg-white/[0.06] hover:bg-white/[0.12] text-white/60 hover:text-white/90 transition-all"
-					>
-						<ExternalLink className="h-3 w-3" />
-						Open in new tab
-					</button>
-				</div>
-			</div>
-
-			{/* Log Lines */}
-			<div
-				ref={scrollContainerRef}
-				onScroll={handleScroll}
-				className="flex-1 overflow-y-auto overflow-x-hidden"
-			>
-				{logs.length === 0 && (
-					<div className="text-white/20 italic text-center py-8 text-sm">
-						<span className="opacity-50">▌</span> Waiting for logs...
-					</div>
-				)}
-				{logs.map((line, i) => (
-					<LogLine
-						key={i}
-						line={line}
-						index={i}
-						showTimestamps={showTimestamps}
-						highlightEnabled={highlightEnabled}
-					/>
-				))}
-				<div ref={logsEndRef} />
-			</div>
-
-			{/* Jump to bottom */}
-			{!autoScroll && logs.length > 0 && (
-				<button
-					type="button"
-					onClick={() => {
-						setAutoScroll(true);
-						logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-					}}
-					className="absolute bottom-3 right-3 bg-[#1a1d2e] border border-blue-500/30 text-blue-400 rounded-md px-3 py-1.5 text-[11px] font-mono cursor-pointer shadow-lg hover:border-blue-500/50 hover:shadow-blue-500/10 transition-all z-10"
-				>
-					↓ Jump to bottom
-				</button>
-			)}
-
-			{/* Hover styles */}
-			<style>{`
-				.sheet-log-line:hover {
-					background: rgba(255, 255, 255, 0.03) !important;
-					box-shadow: inset 3px 0 0 rgba(255, 255, 255, 0.08);
-				}
-				.sheet-log-line:hover .min-w-\\[44px\\] {
-					color: rgba(255, 255, 255, 0.35) !important;
-				}
-			`}</style>
-		</div>
-	);
-}
-
-// FileBrowser moved to FileBrowser.tsx
+import { InspectTab } from "./InspectTab";
+import { LinksTab } from "./LinksTab";
 
 // --- Main Unified Sheet ---
 export function NodeDetailsSheet({
@@ -317,19 +41,13 @@ export function NodeDetailsSheet({
 	const [activeTab, setActiveTab] = useState<
 		"inspect" | "logs" | "attach" | "files" | "links"
 	>("inspect");
-	const [attachShell, setAttachShell] = useState("/bin/sh");
-	const [attachMode, setAttachMode] = useState<"none" | "normal" | "sidecar">(
-		"none",
-	);
 	const [stats, setStats] = useState<any>(null);
 	const [systemDf, setSystemDf] = useState<any>(null);
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
 	const [sheetWidth, setSheetWidth] = useState(() => window.innerWidth * 0.75);
-	const isResizing = useRef(false);
 
-	const [links, setLinks] = useState<{ title: string; url: string }[]>([]);
-	const [linksLoading, setLinksLoading] = useState(false);
+	const isResizing = useRef(false);
 
 	const handleMouseDown = useCallback((_: React.MouseEvent) => {
 		isResizing.current = true;
@@ -420,34 +138,6 @@ export function NodeDetailsSheet({
 			},
 			onCancel: () => setConfirmDialog(null),
 		});
-	};
-
-	const [copiedJson, setCopiedJson] = useState(false);
-	const handleCopyJson = () => {
-		if (!data) return;
-		const jsonStr = JSON.stringify(data, null, 2);
-
-		if (navigator.clipboard && window.isSecureContext) {
-			navigator.clipboard.writeText(jsonStr);
-		} else {
-			const textArea = document.createElement("textarea");
-			textArea.value = jsonStr;
-			textArea.style.position = "fixed";
-			textArea.style.left = "-999999px";
-			textArea.style.top = "-999999px";
-			document.body.appendChild(textArea);
-			textArea.focus();
-			textArea.select();
-			try {
-				document.execCommand("copy");
-			} catch (error) {
-				console.error("Fallback copy failed", error);
-			}
-			textArea.remove();
-		}
-
-		setCopiedJson(true);
-		setTimeout(() => setCopiedJson(false), 2000);
 	};
 
 	const handleClose = useCallback(() => {
@@ -553,44 +243,8 @@ export function NodeDetailsSheet({
 
 		fetchData();
 
-		if (isContainer) {
-			setLinksLoading(true);
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-			fetch(`${apiUrl}/api/containers/${rawId}/links`)
-				.then((res) => res.json())
-				.then((data) => setLinks(data || []))
-				.catch(console.error)
-				.finally(() => setLinksLoading(false));
-		}
-	}, [nodeType, rawId, isContainer]);
-
-	const saveLinks = async (newLinks: { title: string; url: string }[]) => {
-		try {
-			setLinksLoading(true);
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-			const res = await fetch(`${apiUrl}/api/containers/${rawId}/links`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ links: newLinks }),
-			});
-			if (res.ok) {
-				setLinks(newLinks);
-			}
-		} catch (err) {
-			console.error("Failed to save links:", err);
-		} finally {
-			setLinksLoading(false);
-		}
-	};
-
-	const rootKeys = data ? Object.keys(data) : [];
-
-	const handleScrollTo = (key: string) => {
-		const el = document.getElementById(`json-section-${key}`);
-		if (el) {
-			el.scrollIntoView({ behavior: "smooth", block: "start" });
-		}
-	};
+		fetchData();
+	}, [nodeType, rawId]);
 
 	const formatBytes = (bytes: number, decimals = 2) => {
 		if (!+bytes) return "0 Bytes";
@@ -916,12 +570,14 @@ export function NodeDetailsSheet({
 					<div className="h-8 w-1 rounded-full bg-border group-hover:bg-primary transition-colors" />
 				</div>
 				{/* Header Section */}
-				<div className="px-6 py-4 border-b border-border bg-card/95 backdrop-blur z-10 shrink-0">
+				<div className="px-6 py-4 pb-0 border-b border-border bg-card/95 backdrop-blur z-10 shrink-0">
 					<div className="flex items-start justify-between">
 						<div>
 							<h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
 								{isContainer ? (
-									<Box className="h-5 w-5 text-primary" />
+									<Box
+										className={`h-5 w-5 ${data?.State?.Running ? "text-green-500" : "text-primary"}`}
+									/>
 								) : isVolume ? (
 									<Database className="h-5 w-5 text-primary" />
 								) : nodeType === "networkNode" ? (
@@ -943,27 +599,33 @@ export function NodeDetailsSheet({
 						<div className="flex items-center gap-2 mt-4 sm:mt-0">
 							{isContainer && (
 								<div className="flex items-center gap-2 mr-4 border-r border-border/20 pr-4">
-									<button
+									<Button
+										size="sm"
+										variant="default"
 										onClick={() => handleAction("start")}
 										disabled={data?.State?.Running || actionLoading !== null}
-										className="px-3 py-1.5 text-xs font-medium bg-green-500/10 text-green-500 hover:bg-green-500/20 border border-green-500/20 rounded-md transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed w-16"
+										className="bg-green-600 text-white hover:bg-green-700 border border-black w-16"
 									>
 										{actionLoading === "start" ? "..." : "Start"}
-									</button>
-									<button
+									</Button>
+									<Button
+										size="sm"
+										variant="default"
 										onClick={() => handleAction("stop")}
 										disabled={!data?.State?.Running || actionLoading !== null}
-										className="px-3 py-1.5 text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 rounded-md transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed w-16"
+										className="bg-red-600 text-white hover:bg-red-700 border border-black w-16"
 									>
 										{actionLoading === "stop" ? "..." : "Stop"}
-									</button>
-									<button
+									</Button>
+									<Button
+										size="sm"
+										variant="default"
 										onClick={() => handleAction("restart")}
 										disabled={actionLoading !== null}
-										className="px-3 py-1.5 text-xs font-medium bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border border-blue-500/20 rounded-md transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed w-20"
+										className="bg-blue-600 text-white hover:bg-blue-700 border border-black w-20"
 									>
 										{actionLoading === "restart" ? "..." : "Restart"}
-									</button>
+									</Button>
 								</div>
 							)}
 							<button
@@ -1063,163 +725,16 @@ export function NodeDetailsSheet({
 
 				{/* Content Section */}
 				<div className="flex-1 overflow-hidden flex flex-col relative bg-[#1e1e1e]">
-					{activeTab === "inspect" &&
-						(loading ? (
-							<div className="flex-1 flex items-center justify-center">
-								<span className="text-muted-foreground animate-pulse">
-									Loading inspect data...
-								</span>
-							</div>
-						) : error ? (
-							<div className="flex-1 flex items-center justify-center text-destructive">
-								{error}
-							</div>
-						) : (
-							<>
-								{/* Sticky Badges Header */}
-								<div className="sticky top-0 z-20 bg-[#1e1e1e]/95 backdrop-blur-md border-b border-white/10 p-3 shrink-0 flex flex-wrap gap-2 max-h-32 overflow-y-auto shadow-md">
-									{rootKeys.map((key) => {
-										let badgeColor =
-											"bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-white/10";
-										if (key === "Mounts")
-											badgeColor =
-												"bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20 hover:text-amber-200";
-										else if (key === "Config")
-											badgeColor =
-												"bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20 hover:text-blue-200";
-										else if (key === "NetworkSettings")
-											badgeColor =
-												"bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-200";
-
-										return (
-											<button
-												key={key}
-												onClick={() => handleScrollTo(key)}
-												className={`px-2.5 py-1 text-xs font-mono rounded-md border transition-colors ${badgeColor}`}
-											>
-												{key}
-											</button>
-										);
-									})}
-								</div>
-
-								{/* JSON Content */}
-								<div className="flex-1 overflow-y-auto p-6 scroll-smooth relative">
-									<button
-										onClick={handleCopyJson}
-										className="absolute top-8 right-8 z-10 p-2 rounded-md bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-colors"
-										title="Copy JSON"
-									>
-										{copiedJson ? (
-											<Check className="h-4 w-4 text-green-500" />
-										) : (
-											<Copy className="h-4 w-4" />
-										)}
-									</button>
-									<pre className="text-xs font-mono text-gray-300 overflow-x-auto bg-black/20 border border-white/5 p-4 rounded-lg m-0 relative">
-										<span
-											style={{ color: "rgba(255,255,255,0.3)" }}
-										>{`{\n`}</span>
-										{rootKeys.map((key, index) => {
-											const str = JSON.stringify({ [key]: data[key] }, null, 2);
-											// Extract inner content without the outer braces
-											const inner = str.substring(2, str.length - 2);
-											return (
-												<span
-													key={key}
-													id={`json-section-${key}`}
-													className="scroll-mt-32 block"
-												>
-													{renderJsonHighlight(inner)}
-													{index < rootKeys.length - 1 ? (
-														<span style={{ color: "rgba(255,255,255,0.3)" }}>
-															,
-														</span>
-													) : (
-														""
-													)}
-												</span>
-											);
-										})}
-										<span
-											style={{ color: "rgba(255,255,255,0.3)" }}
-										>{`}`}</span>
-									</pre>
-								</div>
-							</>
-						))}
+					{activeTab === "inspect" && (
+						<InspectTab data={data} loading={loading} error={error} />
+					)}
 
 					{activeTab === "logs" && isContainer && (
 						<ContainerLogs containerId={rawId} containerName={nodeName} />
 					)}
 
 					{activeTab === "attach" && isContainer && (
-						<div className="flex flex-col h-full bg-[#0c0c0c] relative">
-							<div className="flex items-center justify-between px-4 py-2 bg-[#1a1a1a] border-b border-green-900/30">
-								<div className="flex items-center gap-4">
-									<select
-										value={attachShell}
-										onChange={(e) => setAttachShell(e.target.value)}
-										disabled={attachMode !== "none"}
-										className="bg-[#2a2a2a] text-xs text-white px-2 py-1 rounded border border-white/10 outline-none"
-									>
-										<option value="/bin/sh">/bin/sh</option>
-										<option value="/bin/bash">/bin/bash</option>
-									</select>
-									{attachMode === "none" ? (
-										<>
-											<button
-												onClick={() => setAttachMode("normal")}
-												className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition-colors"
-											>
-												Connect
-											</button>
-											<button
-												onClick={() => setAttachMode("sidecar")}
-												className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-xs rounded transition-colors"
-											>
-												Connect with Sidecar
-											</button>
-										</>
-									) : (
-										<button
-											onClick={() => setAttachMode("none")}
-											className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-xs rounded transition-colors"
-										>
-											Disconnect
-										</button>
-									)}
-								</div>
-								<div className="flex items-center gap-2">
-									<button
-										onClick={() => {
-											const sidecarParam =
-												attachMode === "sidecar" ? "&sidecar=true" : "";
-											const url = `${window.location.origin}?attach=${encodeURIComponent(rawId)}&shell=${encodeURIComponent(attachShell)}&name=${encodeURIComponent(nodeName)}${sidecarParam}`;
-											window.open(url, "_blank");
-										}}
-										className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition-colors"
-									>
-										<ExternalLink className="h-3 w-3" />
-										Open in new tab
-									</button>
-								</div>
-							</div>
-							<div className="flex-1 min-h-0 overflow-hidden">
-								{attachMode !== "none" ? (
-									<AttachTerminal
-										containerId={rawId}
-										shell={attachShell}
-										isSidecar={attachMode === "sidecar"}
-									/>
-								) : (
-									<div className="flex h-full items-center justify-center text-muted-foreground text-sm">
-										Select a shell and click Connect to start an interactive
-										session.
-									</div>
-								)}
-							</div>
-						</div>
+						<AttachTab containerId={rawId} containerName={nodeName} />
 					)}
 
 					{activeTab === "files" && isVolume && (
@@ -1243,99 +758,7 @@ export function NodeDetailsSheet({
 					)}
 
 					{activeTab === "links" && isContainer && (
-						<div className="flex-1 overflow-y-auto p-6 scroll-smooth bg-[#1e1e1e]">
-							<div className="space-y-6">
-								<div>
-									<h3 className="text-lg font-medium text-white mb-2">
-										Container Links
-									</h3>
-									<p className="text-sm text-white/50 mb-4">
-										Add quick access URLs or ports for this container.
-									</p>
-								</div>
-
-								{linksLoading ? (
-									<div className="text-white/50 text-sm animate-pulse">
-										Loading links...
-									</div>
-								) : (
-									<div className="space-y-4">
-										{links.map((link, idx) => (
-											<div
-												key={idx}
-												className="flex gap-3 items-start p-3 bg-white/5 border border-white/10 rounded-lg"
-											>
-												<div className="flex-1 space-y-2">
-													<input
-														type="text"
-														value={link.title}
-														onChange={(e) => {
-															const newLinks = [...links];
-															newLinks[idx].title = e.target.value;
-															setLinks(newLinks);
-														}}
-														placeholder="Link Title (e.g. Web UI)"
-														className="w-full bg-black/20 border border-white/10 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary"
-													/>
-													<input
-														type="text"
-														value={link.url}
-														onChange={(e) => {
-															const newLinks = [...links];
-															newLinks[idx].url = e.target.value;
-															setLinks(newLinks);
-														}}
-														placeholder="URL (e.g. http://localhost:8080)"
-														className="w-full bg-black/20 border border-white/10 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-primary font-mono"
-													/>
-												</div>
-												<div className="flex flex-col gap-2">
-													<button
-														onClick={() => {
-															if (link.url) window.open(link.url, "_blank");
-														}}
-														className="p-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded"
-														title="Open Link"
-													>
-														<ExternalLink className="w-4 h-4" />
-													</button>
-													<button
-														onClick={() => {
-															const newLinks = links.filter(
-																(_, i) => i !== idx,
-															);
-															setLinks(newLinks);
-														}}
-														className="p-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded"
-														title="Remove Link"
-													>
-														<Trash2 className="w-4 h-4" />
-													</button>
-												</div>
-											</div>
-										))}
-										<button
-											onClick={() =>
-												setLinks([...links, { title: "", url: "" }])
-											}
-											className="flex items-center gap-2 text-sm px-3 py-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-md border border-blue-500/20 transition-colors w-fit"
-										>
-											<Plus className="w-4 h-4" />
-											Add Link
-										</button>
-
-										<div className="pt-4 border-t border-white/10 flex justify-end">
-											<button
-												onClick={() => saveLinks(links)}
-												className="px-4 py-2 bg-blue-500/10 text-blue-400 text-sm font-medium rounded-md hover:bg-blue-500/20 transition-colors"
-											>
-												Save Links
-											</button>
-										</div>
-									</div>
-								)}
-							</div>
-						</div>
+						<LinksTab containerId={rawId} />
 					)}
 				</div>
 			</div>

@@ -612,9 +612,17 @@ function Flow() {
 			} catch (_err) {}
 		};
 
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === "visible") {
+				fetchGraphData();
+			}
+		};
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+
 		return () => {
 			clearInterval(interval);
 			es.close();
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
 		};
 	}, [fetchGraphData]);
 
