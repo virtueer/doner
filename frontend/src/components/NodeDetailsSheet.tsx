@@ -8,32 +8,32 @@ import {
 	Play,
 	Search,
 	Terminal,
-	Trash2,
-	X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { AttachTab } from "./AttachTab";
+import { type ConfirmDialogState, ConfirmModal } from "./ConfirmModal";
 import { ContainerLogs } from "./ContainerLogs";
 import { FileBrowser } from "./FileBrowser";
 import { InspectTab } from "./InspectTab";
 import { LinksTab } from "./LinksTab";
+import { NodeActionButtons } from "./NodeActionButtons";
+import { NodeShortInfo } from "./NodeShortInfo";
 
 // --- Main Unified Sheet ---
 export function NodeDetailsSheet({
 	nodeId,
-	nodeName,
 	nodeType,
+	nodeName,
 	onClose,
-	onOpenNode,
 	onAutoReopenRequest,
+	onOpenNode,
 }: {
 	nodeId: string;
-	nodeName: string;
 	nodeType: string;
+	nodeName: string;
 	onClose: () => void;
-	onOpenNode?: (id: string, name: string, type: string) => void;
 	onAutoReopenRequest?: (id: string, name: string, type: string) => void;
+	onOpenNode?: (id: string, name: string, type: string) => void;
 }) {
 	const [data, setData] = useState<any>(null);
 	const [loading, setLoading] = useState(true);
@@ -44,7 +44,6 @@ export function NodeDetailsSheet({
 	const [stats, setStats] = useState<any>(null);
 	const [systemDf, setSystemDf] = useState<any>(null);
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-
 	const [sheetWidth, setSheetWidth] = useState(() => window.innerWidth * 0.75);
 
 	const isResizing = useRef(false);
@@ -57,7 +56,6 @@ export function NodeDetailsSheet({
 	useEffect(() => {
 		const handleMouseMove = (e: MouseEvent) => {
 			if (!isResizing.current) return;
-			// Sheet is on the right, so width is (window.innerWidth - mouseX)
 			const newWidth = window.innerWidth - e.clientX;
 			if (newWidth >= 400 && newWidth <= window.innerWidth * 0.95) {
 				setSheetWidth(newWidth);
@@ -79,66 +77,9 @@ export function NodeDetailsSheet({
 		};
 	}, []);
 
-	const [confirmDialog, setConfirmDialog] = useState<{
-		isOpen: boolean;
-		title: string;
-		message: string;
-		isDeleteStep2?: boolean;
-		showForceOption?: boolean;
-		onConfirm: (force?: boolean) => void;
-		onCancel: () => void;
-	} | null>(null);
-
-	const [forceCheck, setForceCheck] = useState(false);
-	const [deleteLoading, setDeleteLoading] = useState(false);
-
-	const handleDeleteClick = () => {
-		const isContainerOrImage = isContainer || nodeType === "imageNode";
-		setConfirmDialog({
-			isOpen: true,
-			title: `Delete ${nodeType.replace("Node", "")}`,
-			message:
-				"Are you sure you want to delete this resource? This is step 1 of 2.",
-			onConfirm: () => {
-				setForceCheck(false);
-				setConfirmDialog({
-					isOpen: true,
-					title: "Final Warning",
-					message:
-						"Are you ABSOLUTELY sure? This action is permanent and cannot be undone.",
-					isDeleteStep2: true,
-					showForceOption: isContainerOrImage,
-					onConfirm: async (force) => {
-						try {
-							setDeleteLoading(true);
-							const apiUrl =
-								import.meta.env.VITE_API_URL || "http://localhost:3000";
-							const res = await fetch(
-								`${apiUrl}/api/delete/${nodeType}/${encodeURIComponent(rawId)}${force ? "?force=true" : ""}`,
-								{
-									method: "DELETE",
-								},
-							);
-							if (!res.ok) {
-								const err = await res.json().catch(() => ({}));
-								throw new Error(err.message || "Deletion failed");
-							}
-							setConfirmDialog(null);
-							onClose();
-						} catch (err: any) {
-							console.error("Delete failed:", err);
-							alert(`Delete failed: ${err.message}`);
-							setConfirmDialog(null);
-						} finally {
-							setDeleteLoading(false);
-						}
-					},
-					onCancel: () => setConfirmDialog(null),
-				});
-			},
-			onCancel: () => setConfirmDialog(null),
-		});
-	};
+	const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(
+		null,
+	);
 
 	const handleClose = useCallback(() => {
 		if (hasUnsavedChanges) {
@@ -180,31 +121,7 @@ export function NodeDetailsSheet({
 		return () => {
 			es.close();
 		};
-	}, [rawId, isContainer]);
-
-	const [actionLoading, setActionLoading] = useState<
-		"start" | "stop" | "restart" | null
-	>(null);
-
-	const handleAction = async (action: "start" | "stop" | "restart") => {
-		try {
-			setActionLoading(action);
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-			await fetch(`${apiUrl}/api/containers/${rawId}/${action}`, {
-				method: "POST",
-			});
-			if (action === "restart" || action === "start") {
-				if (onAutoReopenRequest) {
-					onAutoReopenRequest(nodeId, nodeName, nodeType);
-				}
-				onClose();
-			}
-		} catch (err) {
-			console.error(`Failed to ${action} container:`, err);
-		} finally {
-			setActionLoading(null);
-		}
-	};
+	}, [isContainer, rawId]);
 
 	useEffect(() => {
 		const fetchData = async () => {
@@ -242,316 +159,7 @@ export function NodeDetailsSheet({
 		};
 
 		fetchData();
-
-		fetchData();
 	}, [nodeType, rawId]);
-
-	const formatBytes = (bytes: number, decimals = 2) => {
-		if (!+bytes) return "0 Bytes";
-		const k = 1024;
-		const dm = decimals < 0 ? 0 : decimals;
-		const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-		const i = Math.floor(Math.log(bytes) / Math.log(k));
-		return `${parseFloat((bytes / k ** i).toFixed(dm))} ${sizes[i]}`;
-	};
-
-	const formatUptime = (startedAt: string) => {
-		const start = new Date(startedAt).getTime();
-		if (Number.isNaN(start)) return "Unknown";
-		const now = Date.now();
-		const diffMs = Math.max(0, now - start);
-		const diffSec = Math.floor(diffMs / 1000);
-
-		const m = Math.floor(diffSec / 60);
-		const h = Math.floor(m / 60);
-		const d = Math.floor(h / 24);
-
-		if (d > 0) return `${d}d ${h % 24}h`;
-		if (h > 0) return `${h}h ${m % 60}m`;
-		if (m > 0) return `${m}m ${diffSec % 60}s`;
-		return `${diffSec}s`;
-	};
-
-	const renderStatsInfo = () => {
-		if (!stats) {
-			return (
-				<div className="flex items-center gap-4 border-l border-white/10 pl-4 min-w-[200px] min-h-[24px]">
-					<span className="text-xs text-muted-foreground animate-pulse">
-						Loading stats...
-					</span>
-				</div>
-			);
-		}
-
-		let cpuPercent = 0.0;
-		const cpuDelta =
-			stats.cpu_stats?.cpu_usage?.total_usage -
-			(stats.precpu_stats?.cpu_usage?.total_usage || 0);
-		const systemDelta =
-			stats.cpu_stats?.system_cpu_usage -
-			(stats.precpu_stats?.system_cpu_usage || 0);
-
-		if (systemDelta > 0.0 && cpuDelta > 0.0) {
-			const cpus =
-				stats.cpu_stats?.online_cpus ||
-				stats.cpu_stats?.cpu_usage?.percpu_usage?.length ||
-				1;
-			cpuPercent = (cpuDelta / systemDelta) * cpus * 100.0;
-		}
-
-		const memUsage = stats.memory_stats?.usage || 0;
-		const memLimit = stats.memory_stats?.limit || 0;
-		const memPercent = memLimit > 0 ? (memUsage / memLimit) * 100.0 : 0.0;
-
-		let ioRead = 0;
-		let ioWrite = 0;
-		if (stats.blkio_stats?.io_service_bytes_recursive) {
-			for (const stat of stats.blkio_stats.io_service_bytes_recursive) {
-				if (stat.op?.toLowerCase() === "read") ioRead += stat.value;
-				if (stat.op?.toLowerCase() === "write") ioWrite += stat.value;
-			}
-		}
-
-		return (
-			<div className="flex items-center gap-4 border-l border-white/10 pl-4 min-h-[24px]">
-				<div className="flex items-center gap-1.5">
-					<div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-					<span className="font-semibold text-foreground/80">CPU:</span>
-					<span className="font-mono text-blue-400">
-						{cpuPercent.toFixed(2)}%
-					</span>
-				</div>
-				<div
-					className="flex items-center gap-1.5 cursor-help"
-					title={`Usage: ${formatBytes(memUsage)} / Limit: ${formatBytes(memLimit)}`}
-				>
-					<div className="h-1.5 w-1.5 rounded-full bg-purple-500 animate-pulse" />
-					<span className="font-semibold text-foreground/80">RAM:</span>
-					<span className="font-mono text-purple-400">
-						{memPercent.toFixed(2)}%
-					</span>
-				</div>
-				<div
-					className="flex items-center gap-1.5 cursor-help"
-					title={`Read: ${formatBytes(ioRead)} / Write: ${formatBytes(ioWrite)}`}
-				>
-					<div className="h-1.5 w-1.5 rounded-full bg-yellow-500 animate-pulse" />
-					<span className="font-semibold text-foreground/80">Disk I/O:</span>
-					<span className="font-mono text-yellow-400">
-						{formatBytes(ioRead)} / {formatBytes(ioWrite)}
-					</span>
-				</div>
-			</div>
-		);
-	};
-
-	// Helper to extract short info based on type
-	const renderShortInfo = () => {
-		if (!data) return null;
-		if (isContainer) {
-			return (
-				<div className="flex flex-col gap-2 mt-2 text-xs text-muted-foreground w-full">
-					<div className="flex flex-wrap items-center gap-4">
-						<div className="flex items-center gap-1">
-							<span className="font-semibold text-foreground/80">ID:</span>{" "}
-							{data.Id?.substring(0, 12)}
-						</div>
-						<div className="flex items-center gap-1">
-							<span className="font-semibold text-foreground/80">Image:</span>{" "}
-							{data.Config?.Image}
-						</div>
-						<div className="flex items-center gap-1">
-							<span className="font-semibold text-foreground/80">State:</span>
-							<span
-								className={
-									data.State?.Running ? "text-green-500" : "text-red-500"
-								}
-							>
-								{data.State?.Status}
-							</span>
-						</div>
-						{data.State?.Running && data.State?.StartedAt && (
-							<div className="flex items-center gap-1">
-								<span className="font-semibold text-foreground/80">
-									Uptime:
-								</span>{" "}
-								{formatUptime(data.State.StartedAt)}
-							</div>
-						)}
-						{renderStatsInfo()}
-					</div>
-
-					{systemDf ? (
-						<div className="flex flex-col gap-1 border-t border-white/5 pt-2 min-h-[42px]">
-							{(() => {
-								const dfContainer = systemDf.Containers?.find(
-									(c: any) => c.Id === data.Id,
-								);
-								const sizeRw = dfContainer?.SizeRw;
-								const sizeRootFs = dfContainer?.SizeRootFs;
-
-								const volumes =
-									data.Mounts?.filter((m: any) => m.Type === "volume") || [];
-
-								return (
-									<div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-										{sizeRootFs !== undefined && sizeRw !== undefined && (
-											<div
-												className="flex items-center gap-1.5"
-												title="Underlying image size"
-											>
-												<span className="font-semibold text-foreground/80">
-													Image:
-												</span>
-												<div
-													onClick={() => {
-														if (onOpenNode) {
-															onClose();
-															onOpenNode(
-																`img-${data.Image}`,
-																data.Config?.Image || "Image",
-																"imageNode",
-															);
-														}
-													}}
-													className="flex items-center gap-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded cursor-pointer transition-colors"
-												>
-													<span className="truncate max-w-[120px]">
-														{data.Config?.Image || "Image"}
-													</span>
-													<span className="text-[10px] opacity-70">
-														({formatBytes(sizeRootFs - sizeRw)})
-													</span>
-												</div>
-											</div>
-										)}
-										{sizeRw !== undefined && (
-											<div
-												className="flex items-center gap-1"
-												title="Container's writable layer size"
-											>
-												<span className="font-semibold text-foreground/80">
-													Container Size:
-												</span>
-												<span className="text-purple-400">
-													{formatBytes(sizeRw)}
-												</span>
-											</div>
-										)}
-										{volumes.length > 0 && (
-											<div className="flex items-center gap-2">
-												<span className="font-semibold text-foreground/80">
-													Volumes:
-												</span>
-												<div className="flex flex-wrap gap-1.5">
-													{volumes.map((m: any) => {
-														const volDf = systemDf.Volumes?.find(
-															(v: any) => v.Name === m.Name,
-														);
-														const size = volDf?.UsageData?.Size || 0;
-														return (
-															<div
-																key={m.Name}
-																onClick={() => {
-																	if (onOpenNode) {
-																		onClose();
-																		onOpenNode(
-																			`vol-${m.Name}`,
-																			m.Name,
-																			"volumeNode",
-																		);
-																	}
-																}}
-																className="flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded cursor-pointer transition-colors"
-																title={m.Name}
-															>
-																<span className="truncate max-w-[100px]">
-																	{m.Name}
-																</span>
-																<span className="text-[10px] opacity-70">
-																	({formatBytes(size)})
-																</span>
-															</div>
-														);
-													})}
-												</div>
-											</div>
-										)}
-									</div>
-								);
-							})()}
-						</div>
-					) : (
-						<div className="flex flex-col gap-1 border-t border-white/5 pt-2 min-h-[42px] justify-center">
-							<span className="text-xs text-muted-foreground animate-pulse">
-								Loading size data...
-							</span>
-						</div>
-					)}
-				</div>
-			);
-		} else if (nodeType === "networkNode") {
-			return (
-				<div className="flex flex-wrap gap-4 text-xs mt-2 text-muted-foreground">
-					<div className="flex items-center gap-1">
-						<span className="font-semibold text-foreground/80">ID:</span>{" "}
-						{data.Id?.substring(0, 12)}
-					</div>
-					<div className="flex items-center gap-1">
-						<span className="font-semibold text-foreground/80">Driver:</span>{" "}
-						{data.Driver}
-					</div>
-					<div className="flex items-center gap-1">
-						<span className="font-semibold text-foreground/80">Scope:</span>{" "}
-						{data.Scope}
-					</div>
-					<div className="flex items-center gap-1">
-						<span className="font-semibold text-foreground/80">Subnet:</span>{" "}
-						{data.IPAM?.Config?.[0]?.Subnet || "N/A"}
-					</div>
-				</div>
-			);
-		} else if (nodeType === "volumeNode") {
-			const dfVol = systemDf?.Volumes?.find((v: any) => v.Name === data.Name);
-			const volSize = dfVol?.UsageData?.Size;
-
-			return (
-				<div className="flex flex-wrap gap-4 text-xs mt-2 text-muted-foreground">
-					<div className="flex items-center gap-1">
-						<span className="font-semibold text-foreground/80">Driver:</span>{" "}
-						{data.Driver}
-					</div>
-					<div className="flex items-center gap-1">
-						<span className="font-semibold text-foreground/80">
-							Mountpoint:
-						</span>{" "}
-						<span className="truncate max-w-[200px]" title={data.Mountpoint}>
-							{data.Mountpoint}
-						</span>
-					</div>
-					<div className="flex items-center gap-1">
-						<span className="font-semibold text-foreground/80">Created:</span>{" "}
-						{new Date(data.CreatedAt).toLocaleString()}
-					</div>
-					{volSize !== undefined ? (
-						<div className="flex items-center gap-1 border-l border-white/10 pl-4 min-w-[120px]">
-							<span className="font-semibold text-foreground/80">Size:</span>{" "}
-							<span className="text-emerald-400 font-mono">
-								{formatBytes(volSize)}
-							</span>
-						</div>
-					) : (
-						<div className="flex items-center gap-1 border-l border-white/10 pl-4 min-w-[120px]">
-							<span className="text-xs text-muted-foreground animate-pulse">
-								Loading size...
-							</span>
-						</div>
-					)}
-				</div>
-			);
-		}
-		return null;
-	};
 
 	return (
 		<>
@@ -585,64 +193,38 @@ export function NodeDetailsSheet({
 								) : (
 									<Info className="h-5 w-5 text-primary" />
 								)}
-								{nodeName}
-								<span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wider ml-2 align-middle">
+								<span className="truncate max-w-[400px]">{nodeName}</span>
+								<span className="text-xs bg-white/10 px-2 py-0.5 rounded-full text-white/70 ml-2">
 									{nodeType.replace("Node", "")}
 								</span>
 							</h2>
 							{loading ? (
 								<div className="h-4 w-64 bg-white/5 animate-pulse rounded mt-2" />
 							) : (
-								renderShortInfo()
+								<NodeShortInfo
+									data={data}
+									nodeType={nodeType}
+									isContainer={isContainer}
+									systemDf={systemDf}
+									stats={stats}
+									onOpenNode={onOpenNode}
+									onClose={onClose}
+								/>
 							)}
 						</div>
-						<div className="flex items-center gap-2 mt-4 sm:mt-0">
-							{isContainer && (
-								<div className="flex items-center gap-2 mr-4 border-r border-border/20 pr-4">
-									<Button
-										size="sm"
-										variant="default"
-										onClick={() => handleAction("start")}
-										disabled={data?.State?.Running || actionLoading !== null}
-										className="bg-green-600 text-white hover:bg-green-700 border border-black w-16"
-									>
-										{actionLoading === "start" ? "..." : "Start"}
-									</Button>
-									<Button
-										size="sm"
-										variant="default"
-										onClick={() => handleAction("stop")}
-										disabled={!data?.State?.Running || actionLoading !== null}
-										className="bg-red-600 text-white hover:bg-red-700 border border-black w-16"
-									>
-										{actionLoading === "stop" ? "..." : "Stop"}
-									</Button>
-									<Button
-										size="sm"
-										variant="default"
-										onClick={() => handleAction("restart")}
-										disabled={actionLoading !== null}
-										className="bg-blue-600 text-white hover:bg-blue-700 border border-black w-20"
-									>
-										{actionLoading === "restart" ? "..." : "Restart"}
-									</Button>
-								</div>
-							)}
-							<button
-								onClick={handleDeleteClick}
-								disabled={deleteLoading}
-								className="p-2 ml-2 mr-2 rounded-md hover:bg-red-500/20 text-red-500/70 hover:text-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-								title="Delete Resource"
-							>
-								{deleteLoading ? "..." : <Trash2 className="h-5 w-5" />}
-							</button>
-							<button
-								onClick={handleClose}
-								className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-							>
-								<X className="h-5 w-5" />
-							</button>
-						</div>
+
+						<NodeActionButtons
+							nodeType={nodeType}
+							rawId={rawId}
+							nodeId={nodeId}
+							nodeName={nodeName}
+							data={data}
+							isContainer={isContainer}
+							onClose={onClose}
+							onAutoReopenRequest={onAutoReopenRequest}
+							handleClose={handleClose}
+							setConfirmDialog={setConfirmDialog}
+						/>
 					</div>
 
 					{/* Tabs */}
@@ -685,7 +267,7 @@ export function NodeDetailsSheet({
 								>
 									<div className="flex items-center gap-1.5">
 										<Play className="h-4 w-4" />
-										Attach
+										Terminal
 									</div>
 								</button>
 							</>
@@ -702,6 +284,9 @@ export function NodeDetailsSheet({
 								<div className="flex items-center gap-1.5">
 									<Folder className="h-4 w-4" />
 									Files
+									{hasUnsavedChanges && (
+										<div className="w-2 h-2 rounded-full bg-blue-500 ml-1" />
+									)}
 								</div>
 							</button>
 						)}
@@ -763,61 +348,7 @@ export function NodeDetailsSheet({
 				</div>
 			</div>
 
-			{/* Confirm Dialog Modal */}
-			{confirmDialog?.isOpen && (
-				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-					<div
-						className="bg-[#1e1e1e] border border-white/10 rounded-lg shadow-2xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-						onClick={(e) => e.stopPropagation()}
-					>
-						<div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
-							<h3
-								className={`text-base font-medium ${confirmDialog.isDeleteStep2 ? "text-red-500" : "text-white/90"}`}
-							>
-								{confirmDialog.title}
-							</h3>
-							<button
-								onClick={confirmDialog.onCancel}
-								className="text-white/40 hover:text-white/80 transition-colors"
-							>
-								<X className="h-4 w-4" />
-							</button>
-						</div>
-						<div className="px-5 py-5">
-							<p
-								className={`text-sm ${confirmDialog.showForceOption ? "mb-4" : ""} ${confirmDialog.isDeleteStep2 ? "text-red-400 font-medium" : "text-white/70"}`}
-							>
-								{confirmDialog.message}
-							</p>
-							{confirmDialog.showForceOption && (
-								<label className="flex items-center gap-2 mt-4 text-sm text-white/80 cursor-pointer w-fit">
-									<input
-										type="checkbox"
-										checked={forceCheck}
-										onChange={(e) => setForceCheck(e.target.checked)}
-										className="rounded border-white/20 bg-black/20 text-red-500 focus:ring-red-500/50"
-									/>
-									Force delete (even if running/used)
-								</label>
-							)}
-						</div>
-						<div className="px-5 py-4 bg-[#151515] flex items-center justify-end gap-3 border-t border-white/10">
-							<button
-								onClick={confirmDialog.onCancel}
-								className="px-4 py-2 text-sm font-medium text-white/60 hover:text-white/90 hover:bg-white/5 rounded-md transition-colors"
-							>
-								Cancel
-							</button>
-							<button
-								onClick={() => confirmDialog.onConfirm(forceCheck)}
-								className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${confirmDialog.isDeleteStep2 ? "bg-red-500 hover:bg-red-600 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"}`}
-							>
-								{confirmDialog.isDeleteStep2 ? "Yes, DELETE it" : "Confirm"}
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
+			<ConfirmModal confirmDialog={confirmDialog} />
 		</>
 	);
 }
