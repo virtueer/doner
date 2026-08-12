@@ -4,6 +4,39 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "../lib/toast";
 import { resolveOverlaps } from "../utils/autoLayout";
 
+function areNodesEqual(prev: Node[], next: Node[]): boolean {
+	if (prev.length !== next.length) return false;
+	for (let i = 0; i < prev.length; i++) {
+		const p = prev[i];
+		const n = next[i];
+		if (p.id !== n.id) return false;
+		if (p.position?.x !== n.position?.x || p.position?.y !== n.position?.y)
+			return false;
+		if (p.data?.state !== n.data?.state) return false;
+		if (p.data?.label !== n.data?.label) return false;
+		if (p.data?.image !== n.data?.image) return false;
+		if (p.data?.isInternal !== n.data?.isInternal) return false;
+		if (p.data?.isUsed !== n.data?.isUsed) return false;
+	}
+	return true;
+}
+
+function areEdgesEqual(prev: Edge[], next: Edge[]): boolean {
+	if (prev.length !== next.length) return false;
+	for (let i = 0; i < prev.length; i++) {
+		const p = prev[i];
+		const n = next[i];
+		if (
+			p.id !== n.id ||
+			p.source !== n.source ||
+			p.target !== n.target ||
+			p.hidden !== n.hidden
+		)
+			return false;
+	}
+	return true;
+}
+
 export function useTopologyData(setSelectedNode: (node: any) => void) {
 	const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
 	const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -48,14 +81,23 @@ export function useTopologyData(setSelectedNode: (node: any) => void) {
 					return newNode;
 				});
 
-				return resolveOverlaps(resolvedNodes, lockedIds);
+				const finalNodes = resolveOverlaps(resolvedNodes, lockedIds);
+				if (areNodesEqual(currentNodes, finalNodes)) {
+					return currentNodes;
+				}
+				return finalNodes;
 			});
 
-			setEdges(
-				data.edges.map((e: any) =>
+			setEdges((currentEdges) => {
+				const newEdges = data.edges.map((e: any) =>
 					e.sourceHandle === "img-out" ? { ...e, hidden: true } : e,
-				),
-			);
+				);
+				if (areEdgesEqual(currentEdges, newEdges)) {
+					return currentEdges;
+				}
+				return newEdges;
+			});
+
 			setError(null);
 		} catch (err: any) {
 			setError(err.message);
@@ -87,7 +129,6 @@ export function useTopologyData(setSelectedNode: (node: any) => void) {
 
 				if (action === "start" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} started`, "success");
-					fetchGraphData();
 					if (pendingReopenNodeRef.current) {
 						const pendingId = pendingReopenNodeRef.current.id.replace(
 							"cont-",
@@ -104,13 +145,10 @@ export function useTopologyData(setSelectedNode: (node: any) => void) {
 					}
 				} else if (action === "die" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} stopped`, "error");
-					fetchGraphData();
 				} else if (action === "create" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} created`, "info");
-					fetchGraphData();
 				} else if (action === "destroy" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} deleted`, "info");
-					fetchGraphData();
 				}
 			} catch (_err) {}
 		};
