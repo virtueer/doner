@@ -1,118 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { renderAnsiLine } from "@/lib/ansi";
-import { detectLogLevel, highlightLog } from "@/lib/logHighlight";
-
-// --- Sub-component for Logs Streaming ---
-export function LogLine({
-	line,
-	index,
-	showTimestamps,
-	highlightEnabled,
-}: {
-	line: string;
-	index: number;
-	showTimestamps: boolean;
-	highlightEnabled: boolean;
-}) {
-	const [isExpanded, setIsExpanded] = useState(false);
-	const [isOverflowing, setIsOverflowing] = useState(false);
-	const contentRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		const el = contentRef.current;
-		if (!el) return;
-		setIsOverflowing(el.scrollWidth > el.clientWidth);
-	}, []);
-
-	const spaceIdx = line.indexOf(" ");
-	let timestamp = "";
-	let content = line;
-	if (spaceIdx > 10 && spaceIdx <= 35) {
-		const possibleTs = line.substring(0, spaceIdx);
-		if (/^\d{4}-\d{2}-\d{2}T/.test(possibleTs)) {
-			timestamp = possibleTs;
-			content = line.substring(spaceIdx + 1);
-		}
-	}
-
-	const canExpand = isOverflowing;
-	const levelInfo = highlightEnabled ? detectLogLevel(line) : null;
-
-	return (
-		<div
-			onClick={canExpand ? () => setIsExpanded(!isExpanded) : undefined}
-			onKeyDown={
-				canExpand
-					? (e) => {
-							if (e.key === "Enter" || e.key === " ") {
-								e.preventDefault();
-								setIsExpanded(!isExpanded);
-							}
-						}
-					: undefined
-			}
-			role={canExpand ? "button" : undefined}
-			tabIndex={canExpand ? 0 : undefined}
-			className={[
-				"sheet-log-line group flex items-start gap-0 border-b border-white/[0.04] transition-all duration-150",
-				canExpand ? "cursor-pointer" : "",
-				isExpanded
-					? "bg-white/[0.06] shadow-[inset_3px_0_0_hsl(217,90%,60%)]"
-					: "",
-			]
-				.filter(Boolean)
-				.join(" ")}
-			style={{
-				...(levelInfo && !isExpanded
-					? {
-							background: levelInfo.bg,
-							boxShadow: `inset 2px 0 0 ${levelInfo.color}`,
-						}
-					: {}),
-			}}
-		>
-			{/* Line number */}
-			<div className="min-w-[44px] text-right pr-3 py-[5px] pl-2 text-[11px] text-white/15 select-none border-r border-white/[0.04] shrink-0 font-mono">
-				{index + 1}
-			</div>
-
-			{/* Expand indicator — only show if expandable */}
-			{canExpand ? (
-				<div
-					className="min-w-[20px] py-[5px] text-center text-[9px] text-white/20 select-none shrink-0 transition-transform duration-200"
-					style={{
-						transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
-					}}
-				>
-					▶
-				</div>
-			) : (
-				<div className="min-w-[20px] py-[5px] shrink-0" />
-			)}
-
-			{/* Timestamp */}
-			{timestamp && showTimestamps && (
-				<div className="py-[5px] pr-3 text-[11px] text-white/25 select-none shrink-0 whitespace-nowrap font-mono">
-					{timestamp}
-				</div>
-			)}
-
-			{/* Log content */}
-			<div
-				ref={contentRef}
-				className={[
-					"flex-1 py-[5px] pr-4 min-w-0 font-mono text-[12.5px] leading-relaxed text-gray-300",
-					isExpanded
-						? "whitespace-pre-wrap break-all"
-						: "whitespace-nowrap overflow-hidden text-ellipsis",
-				].join(" ")}
-			>
-				{highlightEnabled ? highlightLog(content) : renderAnsiLine(content)}
-			</div>
-		</div>
-	);
-}
+import { LogLine } from "./container-logs/LogLine";
 
 export function ContainerLogs({
 	containerId,
@@ -179,7 +67,6 @@ export function ContainerLogs({
 
 	return (
 		<div className="flex flex-col h-full bg-[#0f1117] relative">
-			{/* Header */}
 			<div className="flex items-center justify-between px-4 py-2 bg-[#161822] border-b border-white/[0.06] shrink-0">
 				<div className="flex items-center gap-2 text-xs font-mono text-white/40">
 					<span className="inline-block w-[7px] h-[7px] rounded-full bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.5)] animate-pulse" />
@@ -220,7 +107,6 @@ export function ContainerLogs({
 				</div>
 			</div>
 
-			{/* Log Lines */}
 			<div
 				ref={scrollContainerRef}
 				onScroll={handleScroll}
@@ -243,7 +129,6 @@ export function ContainerLogs({
 				<div ref={logsEndRef} />
 			</div>
 
-			{/* Jump to bottom */}
 			{!autoScroll && logs.length > 0 && (
 				<button
 					type="button"
@@ -257,7 +142,6 @@ export function ContainerLogs({
 				</button>
 			)}
 
-			{/* Hover styles */}
 			<style>{`
 				.sheet-log-line:hover {
 					background: rgba(255, 255, 255, 0.03) !important;
