@@ -1,0 +1,14 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schemas/knip.json",
+	"workspaces": {
+		"frontend": {
+			"entry": ["src/main.tsx"],
+			"project": ["src/**/*.{ts,tsx}"],
+			"ignoreDependencies": ["tailwindcss"]
+		},
+		"backend": {
+			"entry": ["src/main.ts"],
+			"project": ["src/**/*.ts"]
+		}
+	}
+}

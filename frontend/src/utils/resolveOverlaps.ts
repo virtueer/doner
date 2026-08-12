@@ -3,7 +3,7 @@ import type { Node } from "@xyflow/react";
 /**
  * Returns approximate [width, height] for a given node type.
  */
-export function getNodeDimensions(type?: string): [number, number] {
+function getNodeDimensions(type?: string): [number, number] {
 	switch (type) {
 		case "containerNode":
 			return [310, 120];

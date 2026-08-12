@@ -120,7 +120,7 @@ function applyCodes(codes: string[], current: Segment): Segment {
 	return current;
 }
 
-export function parseAnsi(text: string): Segment[] {
+function parseAnsi(text: string): Segment[] {
 	if (!text) return [{ text }];
 
 	const segments: Segment[] = [];
