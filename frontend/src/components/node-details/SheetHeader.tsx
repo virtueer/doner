@@ -1,4 +1,5 @@
 import { Box, Database, Info, Network, Trash2, X } from "lucide-react";
+import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { SheetShortInfo } from "./SheetShortInfo";
 
@@ -19,7 +20,7 @@ interface SheetHeaderProps {
 	onOpenNode?: (id: string, name: string, type: string) => void;
 }
 
-export function SheetHeader({
+export const SheetHeader = memo(function SheetHeader({
 	nodeName,
 	nodeType,
 	isContainer,
@@ -118,4 +119,4 @@ export function SheetHeader({
 			</div>
 		</div>
 	);
-}
+});

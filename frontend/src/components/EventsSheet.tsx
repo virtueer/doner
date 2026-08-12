@@ -43,11 +43,11 @@ export function EventsSheet({
 	return (
 		<>
 			<div
-				className="fixed inset-0 bg-background/50 backdrop-blur-sm z-40 transition-opacity"
+				className="fixed inset-0 bg-black/60 z-40 transition-opacity"
 				onClick={onClose}
 			/>
 			<div
-				className="fixed inset-y-0 right-0 z-50 bg-[#1e1e1e] border-l border-border shadow-2xl flex flex-col animate-slide-in-right"
+				className="fixed inset-y-0 right-0 z-50 bg-[#1e1e1e] border-l border-border shadow-2xl flex flex-col animate-slide-in-right will-change-transform"
 				style={{ width: sheetWidth }}
 			>
 				<div

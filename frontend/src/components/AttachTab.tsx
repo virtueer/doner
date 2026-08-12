@@ -1,8 +1,8 @@
 import { ExternalLink } from "lucide-react";
-import { useState } from "react";
+import { memo, useState } from "react";
 import { AttachTerminal } from "./AttachTerminal";
 
-export function AttachTab({
+export const AttachTab = memo(function AttachTab({
 	containerId,
 	containerName,
 }: {
@@ -81,4 +81,4 @@ export function AttachTab({
 			</div>
 		</div>
 	);
-}
+});

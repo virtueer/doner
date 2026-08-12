@@ -1,8 +1,8 @@
 import { Check, Copy } from "lucide-react";
-import { useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { renderJsonHighlight } from "@/lib/logHighlight";
 
-export function InspectTab({
+export const InspectTab = memo(function InspectTab({
 	data,
 	loading,
 	error,
@@ -40,62 +40,75 @@ export function InspectTab({
 		setTimeout(() => setCopiedJson(false), 2000);
 	};
 
+	const rootKeys = useMemo(() => (data ? Object.keys(data) : []), [data]);
+
+	const renderedSections = useMemo(() => {
+		if (!data) return null;
+		return rootKeys.map((key, index) => {
+			const str = JSON.stringify({ [key]: data[key] }, null, 2);
+			const inner = str.substring(2, str.length - 2);
+			return (
+				<span
+					key={key}
+					id={`json-section-${key}`}
+					className="scroll-mt-32 block"
+				>
+					{renderJsonHighlight(inner)}
+					{index < rootKeys.length - 1 ? (
+						<span style={{ color: "rgba(255,255,255,0.3)" }}>,</span>
+					) : (
+						""
+					)}
+				</span>
+			);
+		});
+	}, [data, rootKeys]);
+
 	if (loading) {
 		return (
-			<div className="flex-1 flex items-center justify-center">
-				<span className="text-muted-foreground animate-pulse">
-					Loading inspect data...
-				</span>
+			<div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+				Loading inspect data...
 			</div>
 		);
 	}
 
 	if (error) {
 		return (
-			<div className="flex-1 flex items-center justify-center text-destructive">
-				{error}
+			<div className="flex h-full items-center justify-center text-destructive text-sm p-4 text-center">
+				Error: {error}
 			</div>
 		);
 	}
 
-	if (!data) return null;
-
-	const rootKeys = Object.keys(data);
-
-	const handleScrollTo = (key: string) => {
-		const el = document.getElementById(`json-section-${key}`);
-		if (el) {
-			el.scrollIntoView({ behavior: "smooth", block: "start" });
-		}
-	};
+	if (!data) {
+		return (
+			<div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+				No inspect data available.
+			</div>
+		);
+	}
 
 	return (
 		<>
-			{/* Sticky Badges Header */}
-			<div className="sticky top-0 z-20 bg-[#1e1e1e]/95 backdrop-blur-md border-b border-white/10 p-3 shrink-0 flex flex-wrap gap-2 max-h-32 overflow-y-auto shadow-md">
-				{rootKeys.map((key) => {
-					let badgeColor =
-						"bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-white/10";
-					if (key === "Mounts")
-						badgeColor =
-							"bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20 hover:text-amber-200";
-					else if (key === "Config")
-						badgeColor =
-							"bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20 hover:text-blue-200";
-					else if (key === "NetworkSettings")
-						badgeColor =
-							"bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-200";
-
-					return (
-						<button
-							key={key}
-							onClick={() => handleScrollTo(key)}
-							className={`px-2.5 py-1 text-xs font-mono rounded-md border transition-colors ${badgeColor}`}
-						>
-							{key}
-						</button>
-					);
-				})}
+			{/* Sticky Root Keys Bar */}
+			<div className="bg-[#121212] border-b border-white/5 px-6 py-2 flex items-center gap-2 overflow-x-auto text-xs shrink-0 no-scrollbar">
+				<span className="text-white/40 font-mono text-[10px] uppercase tracking-wider shrink-0 mr-1">
+					Jump to:
+				</span>
+				{rootKeys.map((key) => (
+					<button
+						key={key}
+						onClick={() => {
+							const el = document.getElementById(`json-section-${key}`);
+							if (el) {
+								el.scrollIntoView({ behavior: "smooth", block: "start" });
+							}
+						}}
+						className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-mono text-[11px] transition-colors shrink-0 border border-white/5"
+					>
+						{key}
+					</button>
+				))}
 			</div>
 
 			{/* JSON Content */}
@@ -113,28 +126,10 @@ export function InspectTab({
 				</button>
 				<pre className="text-xs font-mono text-gray-300 overflow-x-auto bg-black/20 border border-white/5 p-4 rounded-lg m-0 relative">
 					<span style={{ color: "rgba(255,255,255,0.3)" }}>{`{\n`}</span>
-					{rootKeys.map((key, index) => {
-						const str = JSON.stringify({ [key]: data[key] }, null, 2);
-						// Extract inner content without the outer braces
-						const inner = str.substring(2, str.length - 2);
-						return (
-							<span
-								key={key}
-								id={`json-section-${key}`}
-								className="scroll-mt-32 block"
-							>
-								{renderJsonHighlight(inner)}
-								{index < rootKeys.length - 1 ? (
-									<span style={{ color: "rgba(255,255,255,0.3)" }}>,</span>
-								) : (
-									""
-								)}
-							</span>
-						);
-					})}
+					{renderedSections}
 					<span style={{ color: "rgba(255,255,255,0.3)" }}>{`}`}</span>
 				</pre>
 			</div>
 		</>
 	);
-}
+});

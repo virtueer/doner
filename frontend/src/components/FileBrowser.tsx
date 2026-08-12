@@ -1,5 +1,5 @@
 import { ArrowLeft, Download, ExternalLink, Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { FileActionDialogs } from "./file-browser/FileActionDialogs";
 import { FileContextMenu } from "./file-browser/FileContextMenu";
 import { FileEditorModal } from "./file-browser/FileEditorModal";
@@ -7,7 +7,7 @@ import { FileListTable } from "./file-browser/FileListTable";
 import { getGlobalClipboard } from "./file-browser/fileBrowserUtils";
 import { useFileOperations } from "./file-browser/useFileOperations";
 
-export function FileBrowser({
+export const FileBrowser = memo(function FileBrowser({
 	apiPrefix,
 	nodeName,
 	type,
@@ -275,4 +275,4 @@ export function FileBrowser({
 			/>
 		</div>
 	);
-}
+});

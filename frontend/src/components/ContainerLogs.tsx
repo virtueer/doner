@@ -1,8 +1,8 @@
 import { ExternalLink } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { LogLine } from "./container-logs/LogLine";
 
-export function ContainerLogs({
+export const ContainerLogs = memo(function ContainerLogs({
 	containerId,
 	containerName,
 }: {
@@ -153,4 +153,4 @@ export function ContainerLogs({
 			`}</style>
 		</div>
 	);
-}
+});

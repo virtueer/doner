@@ -1,8 +1,12 @@
+import { memo } from "react";
+
 interface SheetStatsBarProps {
 	stats: any;
 }
 
-export function SheetStatsBar({ stats }: SheetStatsBarProps) {
+export const SheetStatsBar = memo(function SheetStatsBar({
+	stats,
+}: SheetStatsBarProps) {
 	const formatBytes = (bytes: number, decimals = 2) => {
 		if (!+bytes) return "0 Bytes";
 		const k = 1024;
@@ -82,4 +86,4 @@ export function SheetStatsBar({ stats }: SheetStatsBarProps) {
 			</div>
 		</div>
 	);
-}
+});

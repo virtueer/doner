@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { SheetStatsBar } from "./SheetStatsBar";
 
 interface SheetShortInfoProps {
@@ -10,7 +11,7 @@ interface SheetShortInfoProps {
 	onOpenNode?: (id: string, name: string, type: string) => void;
 }
 
-export function SheetShortInfo({
+export const SheetShortInfo = memo(function SheetShortInfo({
 	nodeType,
 	isContainer,
 	data,
@@ -243,4 +244,4 @@ export function SheetShortInfo({
 		);
 	}
 	return null;
-}
+});
