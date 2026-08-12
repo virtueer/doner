@@ -1,6 +1,5 @@
 import { Editor } from "@monaco-editor/react";
 import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface FileEditorModalProps {
 	viewFile: string;
@@ -56,13 +55,13 @@ export function FileEditorModal({
 		>
 			<div className="px-4 py-2 bg-black/20 border-b border-white/5 flex items-center justify-between shrink-0">
 				<div className="flex items-center gap-4">
-					<span className="text-sm font-mono text-foreground truncate">
+					<span className="text-sm font-mono text-white/90 truncate">
 						{viewFile}
 					</span>
 					<select
 						value={selectedLanguage}
 						onChange={(e) => setSelectedLanguage(e.target.value)}
-						className="bg-background text-xs text-foreground border border-input rounded px-2 py-1 outline-none focus:border-ring"
+						className="bg-[#121212] text-xs text-white/80 border border-white/10 rounded px-2 py-1 focus:outline-none focus:border-blue-500/50"
 					>
 						{SUPPORTED_LANGUAGES.map((lang) => (
 							<option key={lang} value={lang}>
@@ -73,45 +72,45 @@ export function FileEditorModal({
 				</div>
 				<div className="flex items-center gap-2">
 					{!fileLoading && !isEditing && (
-						<Button
-							size="xs"
-							variant="outline"
+						<button
 							onClick={() => setIsEditing(true)}
+							className="px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded text-white/80 transition-colors"
 						>
 							Edit
-						</Button>
+						</button>
 					)}
 					{isEditing && (
 						<>
-							<Button
-								size="xs"
-								variant="ghost"
+							<button
 								onClick={() => {
 									setIsEditing(false);
 									setEditContent(fileContent);
 								}}
 								disabled={saving}
+								className="px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded text-white/80 transition-colors disabled:opacity-50"
 							>
 								Cancel
-							</Button>
-							<Button size="xs" onClick={handleSave} disabled={saving}>
+							</button>
+							<button
+								onClick={handleSave}
+								disabled={saving}
+								className="px-2 py-1 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded transition-colors disabled:opacity-50"
+							>
 								{saving ? "Saving..." : "Save"}
-							</Button>
+							</button>
 						</>
 					)}
-					<Button
-						variant="ghost"
-						size="icon-xs"
+					<button
 						onClick={handleCloseFileView}
-						className="ml-1"
+						className="p-1 hover:bg-white/10 rounded text-white/70 ml-2"
 					>
 						<X className="h-4 w-4" />
-					</Button>
+					</button>
 				</div>
 			</div>
 			<div className="flex-1 overflow-auto p-4 flex flex-col">
 				{fileLoading ? (
-					<div className="text-muted-foreground text-sm animate-pulse">
+					<div className="text-white/50 text-sm animate-pulse">
 						Loading content...
 					</div>
 				) : (

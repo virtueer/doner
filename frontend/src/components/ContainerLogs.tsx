@@ -1,6 +1,5 @@
 import { ExternalLink } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { LogLine } from "./container-logs/LogLine";
 
 export function ContainerLogs({
@@ -131,19 +130,27 @@ export function ContainerLogs({
 			</div>
 
 			{!autoScroll && logs.length > 0 && (
-				<Button
+				<button
 					type="button"
-					variant="outline"
-					size="sm"
 					onClick={() => {
 						setAutoScroll(true);
 						logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
 					}}
-					className="absolute bottom-3 right-3 text-blue-400 border-blue-500/30 font-mono shadow-lg hover:border-blue-500/50 z-10"
+					className="absolute bottom-3 right-3 bg-[#1a1d2e] border border-blue-500/30 text-blue-400 rounded-md px-3 py-1.5 text-[11px] font-mono cursor-pointer shadow-lg hover:border-blue-500/50 hover:shadow-blue-500/10 transition-all z-10"
 				>
 					↓ Jump to bottom
-				</Button>
+				</button>
 			)}
+
+			<style>{`
+				.sheet-log-line:hover {
+					background: rgba(255, 255, 255, 0.03) !important;
+					box-shadow: inset 3px 0 0 rgba(255, 255, 255, 0.08);
+				}
+				.sheet-log-line:hover .min-w-\\[44px\\] {
+					color: rgba(255, 255, 255, 0.35) !important;
+				}
+			`}</style>
 		</div>
 	);
 }

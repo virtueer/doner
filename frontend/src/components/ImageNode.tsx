@@ -1,5 +1,4 @@
 import { Layers } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export function ImageNode({ data }: { data: any }) {
 	const formatSize = (bytes: number) => {
@@ -10,37 +9,47 @@ export function ImageNode({ data }: { data: any }) {
 		return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
 	};
 
-	const isUsed = data.isUsed !== false;
+	const isUsed = data.isUsed !== false; // Default to true if missing
 
 	return (
 		<div
-			className={cn(
-				"w-[250px] rounded-xl border backdrop-blur-md shadow-lg p-0 overflow-visible relative cursor-pointer transition-all hover:shadow-xl group",
-				isUsed
-					? "border-pink-500/35 bg-pink-950/50 shadow-[0_4px_20px_rgba(236,72,153,0.08)]"
-					: "border-slate-500/35 bg-slate-900/60 shadow-[0_4px_20px_rgba(100,116,139,0.08)]",
-			)}
+			className="w-[250px] rounded-xl border backdrop-blur-md shadow-lg p-0 overflow-visible relative cursor-pointer transition-all hover:shadow-xl group"
+			style={{
+				borderColor: isUsed
+					? "rgba(236, 72, 153, 0.35)"
+					: "rgba(100, 116, 139, 0.35)",
+				backgroundColor: isUsed
+					? "rgba(80, 7, 36, 0.5)"
+					: "rgba(30, 41, 59, 0.6)",
+				boxShadow: isUsed
+					? "0 4px 20px rgba(236, 72, 153, 0.08)"
+					: "0 4px 20px rgba(100, 116, 139, 0.08)",
+			}}
 		>
 			<div className="flex flex-col">
+				{/* Header */}
 				<div
-					className={cn(
-						"flex items-center gap-3 p-3 border-b cursor-grab active:cursor-grabbing rounded-t-xl",
-						isUsed
-							? "bg-pink-500/10 border-pink-500/15"
-							: "bg-slate-500/10 border-slate-500/15",
-					)}
+					className="flex items-center gap-3 p-3 border-b cursor-grab active:cursor-grabbing rounded-t-xl"
+					style={{
+						backgroundColor: isUsed
+							? "rgba(236, 72, 153, 0.12)"
+							: "rgba(100, 116, 139, 0.1)",
+						borderColor: isUsed
+							? "rgba(236, 72, 153, 0.15)"
+							: "rgba(100, 116, 139, 0.15)",
+					}}
 				>
 					<div
-						className={cn(
-							"p-2 rounded-lg group-hover:scale-110 transition-all duration-300",
-							isUsed ? "bg-pink-500/20" : "bg-slate-500/20",
-						)}
+						className="p-2 rounded-lg group-hover:scale-110 transition-all duration-300"
+						style={{
+							backgroundColor: isUsed
+								? "rgba(236, 72, 153, 0.2)"
+								: "rgba(100, 116, 139, 0.2)",
+						}}
 					>
 						<Layers
-							className={cn(
-								"w-4 h-4",
-								isUsed ? "text-pink-400" : "text-slate-400",
-							)}
+							className="w-4 h-4"
+							style={{ color: isUsed ? "#f472b6" : "#94a3b8" }}
 						/>
 					</div>
 					<div className="flex flex-col flex-1 min-w-0">
@@ -51,21 +60,28 @@ export function ImageNode({ data }: { data: any }) {
 							{data.label}
 						</div>
 						<div
-							className={cn(
-								"text-[10px] font-medium uppercase tracking-wider mt-1",
-								isUsed ? "text-pink-400/60" : "text-slate-400/60",
-							)}
+							className="text-[10px] font-medium uppercase tracking-wider mt-1"
+							style={{
+								color: isUsed
+									? "rgba(244, 114, 182, 0.6)"
+									: "rgba(148, 163, 184, 0.6)",
+							}}
 						>
 							Docker Image
 						</div>
 					</div>
 				</div>
 
+				{/* Content */}
 				<div className="p-3">
 					<div className="flex flex-col gap-2">
 						<div className="flex justify-between items-center text-xs">
 							<span
-								className={isUsed ? "text-pink-400/60" : "text-slate-400/60"}
+								style={{
+									color: isUsed
+										? "rgba(244, 114, 182, 0.6)"
+										: "rgba(148, 163, 184, 0.6)",
+								}}
 							>
 								Size:
 							</span>
@@ -75,11 +91,18 @@ export function ImageNode({ data }: { data: any }) {
 						</div>
 						<div className="flex justify-between items-center text-xs">
 							<span
-								className={isUsed ? "text-pink-400/60" : "text-slate-400/60"}
+								style={{
+									color: isUsed
+										? "rgba(244, 114, 182, 0.6)"
+										: "rgba(148, 163, 184, 0.6)",
+								}}
 							>
 								Created:
 							</span>
-							<span className="font-mono text-white/90">
+							<span
+								className="font-mono text-white/90 truncate pl-2"
+								title={new Date(data.created * 1000).toLocaleString()}
+							>
 								{new Date(data.created * 1000).toLocaleDateString()}
 							</span>
 						</div>

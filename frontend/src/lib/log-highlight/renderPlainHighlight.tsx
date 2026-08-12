@@ -14,7 +14,7 @@ export function renderPlainHighlight(text: string): ReactNode[] {
 	while ((match = plainRegex.exec(text)) !== null) {
 		if (match.index > lastIndex) {
 			elements.push(
-				<span key={`g${idx++}`} className="text-gray-300">
+				<span key={`g${idx++}`} style={{ color: "#d1d5db" }}>
 					{text.slice(lastIndex, match.index)}
 				</span>,
 			);
@@ -24,13 +24,13 @@ export function renderPlainHighlight(text: string): ReactNode[] {
 			const clean = match[1].replace(/[[\]]/g, "");
 			const color = getLogLevelColor(clean) || "#d1d5db";
 			elements.push(
-				<span key={`l${idx++}`} className="font-semibold" style={{ color }}>
+				<span key={`l${idx++}`} style={{ color, fontWeight: 600 }}>
 					{match[1]}
 				</span>,
 			);
 		} else if (match[2]) {
 			elements.push(
-				<span key={`s${idx++}`} className="text-amber-400">
+				<span key={`s${idx++}`} style={{ color: "#fbbf24" }}>
 					{match[2]}
 				</span>,
 			);
@@ -38,26 +38,30 @@ export function renderPlainHighlight(text: string): ReactNode[] {
 			elements.push(
 				<span
 					key={`u${idx++}`}
-					className="text-blue-400 underline decoration-blue-400/30"
+					style={{
+						color: "#60a5fa",
+						textDecoration: "underline",
+						textDecorationColor: "rgba(96,165,250,0.3)",
+					}}
 				>
 					{match[3]}
 				</span>,
 			);
 		} else if (match[4]) {
 			elements.push(
-				<span key={`ip${idx++}`} className="text-purple-400">
+				<span key={`ip${idx++}`} style={{ color: "#a78bfa" }}>
 					{match[4]}
 				</span>,
 			);
 		} else if (match[5]) {
 			elements.push(
-				<span key={`m${idx++}`} className="text-emerald-400 font-semibold">
+				<span key={`m${idx++}`} style={{ color: "#34d399", fontWeight: 600 }}>
 					{match[5]}
 				</span>,
 			);
 		} else if (match[6]) {
 			elements.push(
-				<span key={`d${idx++}`} className="text-purple-400">
+				<span key={`d${idx++}`} style={{ color: "#c084fc" }}>
 					{match[6]}
 				</span>,
 			);
@@ -68,7 +72,7 @@ export function renderPlainHighlight(text: string): ReactNode[] {
 
 	if (lastIndex < text.length) {
 		elements.push(
-			<span key={`r${idx++}`} className="text-gray-300">
+			<span key={`r${idx++}`} style={{ color: "#d1d5db" }}>
 				{text.slice(lastIndex)}
 			</span>,
 		);
@@ -77,7 +81,7 @@ export function renderPlainHighlight(text: string): ReactNode[] {
 	return elements.length > 0
 		? elements
 		: [
-				<span key="all" className="text-gray-300">
+				<span key="all" style={{ color: "#d1d5db" }}>
 					{text}
 				</span>,
 			];
