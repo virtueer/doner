@@ -138,7 +138,7 @@ export function NodeDetailsSheet({
 					<div className="h-8 w-1 rounded-full bg-border group-hover:bg-primary transition-colors" />
 				</div>
 
-				<div className="px-6 py-4 pb-0 border-b border-border bg-card/95 backdrop-blur z-10 shrink-0">
+				<div className="px-6 py-4 pb-0 border-b border-border bg-card z-10 shrink-0">
 					<SheetHeader
 						nodeName={nodeName}
 						nodeType={nodeType}
