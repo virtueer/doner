@@ -100,5 +100,44 @@
 }
 
 .animate-slide-in-right {
-	animation: slideInRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+	animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@layer utilities {
+	.glass-panel {
+		background-color: hsl(var(--card) / 0.95);
+		backdrop-filter: blur(12px);
+		border-width: 1px;
+		border-color: rgba(255, 255, 255, 0.2);
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+	}
+
+	.terminal-log-line:hover,
+	.sheet-log-line:hover {
+		background: rgba(255, 255, 255, 0.03);
+		box-shadow: inset 3px 0 0 rgba(255, 255, 255, 0.08);
+	}
+
+	.terminal-log-line:hover .log-line-num,
+	.sheet-log-line:hover .log-line-num {
+		color: rgba(255, 255, 255, 0.35);
+	}
+
+	::-webkit-scrollbar {
+		width: 6px;
+		height: 6px;
+	}
+
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	::-webkit-scrollbar-thumb {
+		background: rgba(255, 255, 255, 0.15);
+		border-radius: 3px;
+	}
+
+	::-webkit-scrollbar-thumb:hover {
+		background: rgba(255, 255, 255, 0.25);
+	}
 }

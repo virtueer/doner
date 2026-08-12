@@ -11,6 +11,8 @@ import {
 	Sparkles,
 } from "lucide-react";
 import type React from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface AppHeaderProps {
 	searchInputRef: React.RefObject<HTMLInputElement | null>;
@@ -48,8 +50,8 @@ export function AppHeader({
 			{/* Search Bar (Top Left) */}
 			<Panel position="top-left" className="m-4">
 				<div className="relative shadow-2xl rounded-xl">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-					<input
+					<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+					<Input
 						ref={searchInputRef}
 						type="text"
 						placeholder="Search nodes..."
@@ -58,10 +60,10 @@ export function AppHeader({
 						onFocus={() => setIsSearchFocused(true)}
 						onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
 						onKeyDown={handleSearchKeyDown}
-						className="pl-9 pr-4 py-2.5 bg-card/95 backdrop-blur-md border border-white/30 rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary w-64 transition-all shadow-[0_4px_20px_rgba(0,0,0,0.5)] ring-1 ring-white/10"
+						className="pl-9 pr-4 py-2.5 glass-panel rounded-xl text-sm w-64 shadow-2xl"
 					/>
 					{isSearchFocused && matchedNodes.length > 0 && (
-						<div className="absolute top-full left-0 w-full mt-1 z-50 bg-card/95 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg overflow-hidden max-h-64 overflow-y-auto">
+						<div className="absolute top-full left-0 w-full mt-1 z-50 glass-panel rounded-lg shadow-lg overflow-hidden max-h-64 overflow-y-auto">
 							{matchedNodes.map((n, idx) => {
 								let Icon = Box;
 								let iconColor = "text-green-500";
@@ -118,39 +120,43 @@ export function AppHeader({
 			{/* Floating toolbar top-right */}
 			<Panel
 				position="top-right"
-				className="flex items-center gap-2 m-4 bg-card/95 backdrop-blur-md p-1.5 rounded-xl border border-white/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)] ring-1 ring-white/10"
+				className="flex items-center gap-2 m-4 glass-panel p-1.5 rounded-xl shadow-2xl"
 			>
 				{loading && (
 					<span className="text-xs text-muted-foreground animate-pulse px-2 py-1 rounded">
 						Updating...
 					</span>
 				)}
-				<button
+				<Button
+					variant="ghost"
+					size="sm"
 					onClick={handleAutoLayout}
-					className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-foreground rounded-lg text-xs font-medium hover:bg-white/10 hover:border-white/20 transition-all border border-transparent"
 					title="Auto arrange nodes"
 				>
 					<Sparkles className="h-3.5 w-3.5" />
 					Auto Layout
-				</button>
-				<button
+				</Button>
+				<Button
+					variant="ghost"
+					size="sm"
 					onClick={fetchGraphData}
-					className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-foreground rounded-lg text-xs font-medium hover:bg-white/10 hover:border-white/20 transition-all border border-transparent"
 					title="Refresh data"
 				>
 					<RefreshCw
 						className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
 					/>
 					Refresh
-				</button>
-				<button
+				</Button>
+				<Button
+					variant="ghost"
+					size="sm"
 					onClick={() => setShowEvents(true)}
-					className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-foreground rounded-lg text-xs font-medium hover:bg-white/10 hover:border-white/20 transition-all border border-transparent ml-2"
 					title="View Events"
+					className="ml-1"
 				>
 					<Activity className="h-3.5 w-3.5" />
 					Events
-				</button>
+				</Button>
 			</Panel>
 		</>
 	);

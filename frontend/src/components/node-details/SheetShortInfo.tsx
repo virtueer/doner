@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { SheetStatsBar } from "./SheetStatsBar";
 
 interface SheetShortInfoProps {
@@ -59,13 +60,12 @@ export function SheetShortInfo({
 					</div>
 					<div className="flex items-center gap-1">
 						<span className="font-semibold text-foreground/80">State:</span>
-						<span
-							className={
-								data.State?.Running ? "text-green-500" : "text-red-500"
-							}
+						<Badge
+							variant={data.State?.Running ? "success" : "destructive"}
+							className="text-[10px] px-1.5 py-0"
 						>
 							{data.State?.Status}
-						</span>
+						</Badge>
 					</div>
 					{data.State?.Running && data.State?.StartedAt && (
 						<div className="flex items-center gap-1">

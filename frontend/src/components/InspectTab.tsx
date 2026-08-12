@@ -112,7 +112,7 @@ export function InspectTab({
 					)}
 				</button>
 				<pre className="text-xs font-mono text-gray-300 overflow-x-auto bg-black/20 border border-white/5 p-4 rounded-lg m-0 relative">
-					<span style={{ color: "rgba(255,255,255,0.3)" }}>{`{\n`}</span>
+					<span className="text-white/30">{`{\n`}</span>
 					{rootKeys.map((key, index) => {
 						const str = JSON.stringify({ [key]: data[key] }, null, 2);
 						// Extract inner content without the outer braces
@@ -125,14 +125,14 @@ export function InspectTab({
 							>
 								{renderJsonHighlight(inner)}
 								{index < rootKeys.length - 1 ? (
-									<span style={{ color: "rgba(255,255,255,0.3)" }}>,</span>
+									<span className="text-white/30">,</span>
 								) : (
 									""
 								)}
 							</span>
 						);
 					})}
-					<span style={{ color: "rgba(255,255,255,0.3)" }}>{`}`}</span>
+					<span className="text-white/30">{`}`}</span>
 				</pre>
 			</div>
 		</>

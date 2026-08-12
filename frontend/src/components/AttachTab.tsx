@@ -1,5 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { AttachTerminal } from "./AttachTerminal";
 
 export function AttachTab({
@@ -17,7 +18,7 @@ export function AttachTab({
 	return (
 		<div className="flex flex-col h-full bg-[#0c0c0c] relative">
 			<div className="flex items-center justify-between px-4 py-2 bg-[#1a1a1a] border-b border-green-900/30">
-				<div className="flex items-center gap-4">
+				<div className="flex items-center gap-2">
 					<select
 						value={attachShell}
 						onChange={(e) => setAttachShell(e.target.value)}
@@ -29,41 +30,45 @@ export function AttachTab({
 					</select>
 					{attachMode === "none" ? (
 						<>
-							<button
+							<Button
+								size="sm"
+								className="bg-green-600 hover:bg-green-500 text-white"
 								onClick={() => setAttachMode("normal")}
-								className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-xs rounded transition-colors"
 							>
 								Connect
-							</button>
-							<button
+							</Button>
+							<Button
+								size="sm"
+								variant="destructive"
 								onClick={() => setAttachMode("sidecar")}
-								className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-xs rounded transition-colors"
 							>
 								Connect with Sidecar
-							</button>
+							</Button>
 						</>
 					) : (
-						<button
+						<Button
+							size="sm"
+							variant="destructive"
 							onClick={() => setAttachMode("none")}
-							className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-xs rounded transition-colors"
 						>
 							Disconnect
-						</button>
+						</Button>
 					)}
 				</div>
 				<div className="flex items-center gap-2">
-					<button
+					<Button
+						size="sm"
+						variant="outline"
 						onClick={() => {
 							const sidecarParam =
 								attachMode === "sidecar" ? "&sidecar=true" : "";
 							const url = `${window.location.origin}?attach=${encodeURIComponent(containerId)}&shell=${encodeURIComponent(attachShell)}&name=${encodeURIComponent(containerName)}${sidecarParam}`;
 							window.open(url, "_blank");
 						}}
-						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition-colors"
 					>
 						<ExternalLink className="h-3 w-3" />
 						Open in new tab
-					</button>
+					</Button>
 				</div>
 			</div>
 			<div className="flex-1 min-h-0 overflow-hidden">

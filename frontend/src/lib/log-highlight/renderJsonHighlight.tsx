@@ -14,7 +14,7 @@ export function renderJsonHighlight(text: string): ReactNode[] {
 	while ((match = tokenRegex.exec(text)) !== null) {
 		if (match.index > lastIndex) {
 			elements.push(
-				<span key={`g${idx++}`} style={{ color: "rgba(255,255,255,0.4)" }}>
+				<span key={`g${idx++}`} className="text-white/40">
 					{text.slice(lastIndex, match.index)}
 				</span>,
 			);
@@ -22,12 +22,12 @@ export function renderJsonHighlight(text: string): ReactNode[] {
 
 		if (match[1] && match[2]) {
 			elements.push(
-				<span key={`k${idx++}`} style={{ color: "#7dd3fc" }}>
+				<span key={`k${idx++}`} className="text-sky-300">
 					{match[1]}
 				</span>,
 			);
 			elements.push(
-				<span key={`c${idx++}`} style={{ color: "rgba(255,255,255,0.25)" }}>
+				<span key={`c${idx++}`} className="text-white/25">
 					{match[2]}
 				</span>,
 			);
@@ -38,39 +38,40 @@ export function renderJsonHighlight(text: string): ReactNode[] {
 				elements.push(
 					<span
 						key={`lv${idx++}`}
-						style={{ color: levelColor, fontWeight: 600 }}
+						className="font-semibold"
+						style={{ color: levelColor }}
 					>
 						{match[3]}
 					</span>,
 				);
 			} else {
 				elements.push(
-					<span key={`s${idx++}`} style={{ color: "#fbbf24" }}>
+					<span key={`s${idx++}`} className="text-amber-400">
 						{match[3]}
 					</span>,
 				);
 			}
 		} else if (match[4]) {
 			elements.push(
-				<span key={`n${idx++}`} style={{ color: "#c084fc" }}>
+				<span key={`n${idx++}`} className="text-purple-400">
 					{match[4]}
 				</span>,
 			);
 		} else if (match[5]) {
 			elements.push(
-				<span key={`b${idx++}`} style={{ color: "#fb923c" }}>
+				<span key={`b${idx++}`} className="text-orange-400">
 					{match[5]}
 				</span>,
 			);
 		} else if (match[6]) {
 			elements.push(
-				<span key={`nl${idx++}`} style={{ color: "rgba(255,255,255,0.25)" }}>
+				<span key={`nl${idx++}`} className="text-white/25">
 					{match[6]}
 				</span>,
 			);
 		} else if (match[7]) {
 			elements.push(
-				<span key={`p${idx++}`} style={{ color: "rgba(255,255,255,0.3)" }}>
+				<span key={`p${idx++}`} className="text-white/30">
 					{match[7]}
 				</span>,
 			);
@@ -81,7 +82,7 @@ export function renderJsonHighlight(text: string): ReactNode[] {
 
 	if (lastIndex < text.length) {
 		elements.push(
-			<span key={`r${idx++}`} style={{ color: "rgba(255,255,255,0.4)" }}>
+			<span key={`r${idx++}`} className="text-white/40">
 				{text.slice(lastIndex)}
 			</span>,
 		);

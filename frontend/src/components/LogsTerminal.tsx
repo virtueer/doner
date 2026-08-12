@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { TerminalLogLine } from "./logs-terminal/TerminalLogLine";
 
 interface LogsTerminalProps {
@@ -118,41 +119,19 @@ export function LogsTerminal({
 			</div>
 
 			{!autoScroll && logs.length > 0 && (
-				<button
+				<Button
 					type="button"
+					variant="outline"
+					size="sm"
 					onClick={() => {
 						setAutoScroll(true);
 						logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
 					}}
-					className="fixed bottom-4 right-4 bg-[#1a1d2e] border border-blue-500/30 text-blue-400 rounded-md px-3.5 py-2 text-[11px] font-mono cursor-pointer shadow-lg hover:border-blue-500/50 hover:shadow-blue-500/10 transition-all z-[100]"
+					className="fixed bottom-4 right-4 text-blue-400 border-blue-500/30 font-mono shadow-lg hover:border-blue-500/50 z-[100]"
 				>
 					↓ Jump to bottom
-				</button>
+				</Button>
 			)}
-
-			<style>{`
-				.terminal-log-line:hover {
-					background: rgba(255, 255, 255, 0.03) !important;
-					box-shadow: inset 3px 0 0 rgba(255, 255, 255, 0.08);
-				}
-				.terminal-log-line:hover .min-w-\\[52px\\] {
-					color: rgba(255, 255, 255, 0.35) !important;
-				}
-
-				div::-webkit-scrollbar {
-					width: 6px;
-				}
-				div::-webkit-scrollbar-track {
-					background: #0f1117;
-				}
-				div::-webkit-scrollbar-thumb {
-					background: rgba(255, 255, 255, 0.08);
-					border-radius: 3px;
-				}
-				div::-webkit-scrollbar-thumb:hover {
-					background: rgba(255, 255, 255, 0.15);
-				}
-			`}</style>
 		</div>
 	);
 }

@@ -1,4 +1,13 @@
 import { Database, FileText, Folder, Link } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
 import { formatBytes } from "./fileBrowserUtils";
 
 interface FileListTableProps {
@@ -16,32 +25,32 @@ export function FileListTable({
 }: FileListTableProps) {
 	return (
 		<div className="overflow-y-auto h-full p-2">
-			<table className="w-full text-left border-collapse table-auto">
-				<thead>
-					<tr className="border-b border-white/5 text-xs text-white/40 font-medium">
-						<th className="pb-2 font-normal pl-2 w-full">Name</th>
-						<th className="pb-2 font-normal px-4 whitespace-nowrap w-[1%] text-right">
+			<Table>
+				<TableHeader>
+					<TableRow className="border-b border-white/10 text-xs text-muted-foreground font-medium">
+						<TableHead className="w-full">Name</TableHead>
+						<TableHead className="whitespace-nowrap w-[1%] text-right">
 							Size
-						</th>
-						<th className="pb-2 font-normal whitespace-nowrap w-[1%] pr-4 text-right">
+						</TableHead>
+						<TableHead className="whitespace-nowrap w-[1%] pr-4 text-right">
 							Modified
-						</th>
-					</tr>
-				</thead>
-				<tbody>
+						</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
 					{files.map((f, i) => {
 						const isMount = isMountPoint(f.path);
 						return (
-							<tr
+							<TableRow
 								key={i}
 								onClick={() => handleFileClick(f)}
 								onContextMenu={(e) => {
 									e.stopPropagation();
 									handleContextMenu(e, f);
 								}}
-								className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors group h-10"
+								className="cursor-pointer group h-10"
 							>
-								<td className="py-2 pl-2 max-w-0 overflow-hidden">
+								<TableCell className="max-w-0 overflow-hidden">
 									<div className="flex items-center gap-2 min-w-0">
 										{isMount ? (
 											<Database className="h-4 w-4 text-purple-500 shrink-0" />
@@ -53,40 +62,46 @@ export function FileListTable({
 											<FileText className="h-4 w-4 text-slate-400 shrink-0" />
 										)}
 										<span
-											className="text-sm text-white/90 truncate group-hover:text-blue-400 transition-colors"
+											className="text-sm text-foreground truncate group-hover:text-primary transition-colors"
 											title={f.name}
 										>
 											{f.name}
 										</span>
 										{isMount && (
-											<span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 ml-1 shrink-0">
+											<Badge
+												variant="secondary"
+												className="bg-purple-500/10 text-purple-400 border-purple-500/20 text-[10px] px-1.5 py-0 shrink-0"
+											>
 												Mount
-											</span>
+											</Badge>
 										)}
 										{f.type === "symlink" && (
-											<span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 ml-1 shrink-0">
+											<Badge
+												variant="secondary"
+												className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px] px-1.5 py-0 shrink-0"
+											>
 												Shortcut
-											</span>
+											</Badge>
 										)}
 									</div>
-								</td>
-								<td
-									className="py-2 px-4 whitespace-nowrap text-xs text-white/50 font-mono"
+								</TableCell>
+								<TableCell
+									className="whitespace-nowrap text-xs text-muted-foreground font-mono text-right"
 									title={formatBytes(f.size)}
 								>
 									{formatBytes(f.size)}
-								</td>
-								<td
-									className="py-2 whitespace-nowrap text-xs text-white/50 pr-4"
+								</TableCell>
+								<TableCell
+									className="whitespace-nowrap text-xs text-muted-foreground pr-4 text-right"
 									title={new Date(f.mtime).toLocaleString()}
 								>
 									{new Date(f.mtime).toLocaleString()}
-								</td>
-							</tr>
+								</TableCell>
+							</TableRow>
 						);
 					})}
-				</tbody>
-			</table>
+				</TableBody>
+			</Table>
 		</div>
 	);
 }
