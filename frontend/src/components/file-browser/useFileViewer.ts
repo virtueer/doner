@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { api } from "../../lib/api";
 import { getLanguageFromExtension } from "./fileBrowserUtils";
 
 export function useFileViewer(
@@ -28,14 +29,11 @@ export function useFileViewer(
 				setViewFile(file.name);
 				setViewFilePath(file.path);
 				setIsEditing(false);
-				const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-				const res = await fetch(
-					`${apiUrl}${apiPrefix}/files/read?path=${encodeURIComponent(file.path)}`,
-				);
-				if (!res.ok) throw new Error("Failed to read file");
-				const data = await res.json();
-				setFileContent(data.content);
-				setEditContent(data.content);
+				const res = await api.get(`${apiPrefix}/files/read`, {
+					params: { path: file.path },
+				});
+				setFileContent(res.data.content);
+				setEditContent(res.data.content);
 				setSelectedLanguage(getLanguageFromExtension(file.name));
 			} catch (err: any) {
 				setFileContent(`Error: ${err.message}`);
@@ -49,16 +47,13 @@ export function useFileViewer(
 		if (!viewFilePath) return;
 		try {
 			setSaving(true);
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-			const res = await fetch(
-				`${apiUrl}${apiPrefix}/files/write?path=${encodeURIComponent(viewFilePath)}`,
+			await api.post(
+				`${apiPrefix}/files/write`,
+				{ content: editContent },
 				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ content: editContent }),
+					params: { path: viewFilePath },
 				},
 			);
-			if (!res.ok) throw new Error("Failed to write file");
 			setFileContent(editContent);
 			setIsEditing(false);
 		} catch (err: any) {

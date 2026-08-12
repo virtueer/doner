@@ -1,6 +1,7 @@
 import type { Edge, Node } from "@xyflow/react";
 import { useEdgesState, useNodesState } from "@xyflow/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { api } from "../lib/api";
 import { toast } from "../lib/toast";
 import { resolveOverlaps } from "../utils/autoLayout";
 
@@ -55,10 +56,8 @@ export function useTopologyData(setSelectedNode: (node: any) => void) {
 	const fetchGraphData = useCallback(async () => {
 		try {
 			setLoading(true);
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-			const res = await fetch(`${apiUrl}/api/network-graph`);
-			if (!res.ok) throw new Error("Failed to fetch graph data");
-			const data = await res.json();
+			const res = await api.get("/api/network-graph");
+			const data = res.data;
 			rawDataRef.current = data;
 
 			setNodes((currentNodes) => {

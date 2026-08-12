@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { api } from "../../lib/api";
 import type { DialogState } from "./FileActionDialogs";
 import { useFileActions } from "./useFileActions";
 import { useFileViewer } from "./useFileViewer";
@@ -96,13 +97,10 @@ export function useFileOperations(
 				setLoading(true);
 				setError(null);
 				setViewFile(null);
-				const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-				const res = await fetch(
-					`${apiUrl}${apiPrefix}/files?path=${encodeURIComponent(path)}`,
-				);
-				if (!res.ok) throw new Error("Failed to fetch files");
-				const data = await res.json();
-				setFiles(data);
+				const res = await api.get(`${apiPrefix}/files`, {
+					params: { path },
+				});
+				setFiles(res.data);
 				setCurrentPath(path);
 				setPathInput(path.startsWith("/") ? path : `/${path}`);
 			} catch (err: any) {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { api } from "../lib/api";
 import { FileBrowser } from "./FileBrowser";
 
 export function FileBrowserScreen({
@@ -17,12 +18,8 @@ export function FileBrowserScreen({
 		const fetchMounts = async () => {
 			try {
 				const rawId = apiPrefix.split("/").pop() || "";
-				const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-				const res = await fetch(`${apiUrl}/api/inspect/containerNode/${rawId}`);
-				if (res.ok) {
-					const json = await res.json();
-					if (json.Mounts) setMounts(json.Mounts);
-				}
+				const res = await api.get(`/api/inspect/containerNode/${rawId}`);
+				if (res.data?.Mounts) setMounts(res.data.Mounts);
 			} catch (_e) {}
 		};
 		fetchMounts();

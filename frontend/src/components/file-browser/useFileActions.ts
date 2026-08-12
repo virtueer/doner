@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { api } from "../../lib/api";
 import {
 	type ClipboardItem,
 	getGlobalClipboard,
@@ -44,7 +45,6 @@ export function useFileActions(
 		}
 
 		try {
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 			const safeCurrentPath = currentPath.endsWith("/")
 				? currentPath
 				: `${currentPath}/`;
@@ -56,15 +56,10 @@ export function useFileActions(
 			const destPath =
 				currentPath === "/" ? pasteName : safeCurrentPath + pasteName;
 
-			const res = await fetch(`${apiUrl}${apiPrefix}/files/copy`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ srcPath: globalClipboard.path, destPath }),
+			await api.post(`${apiPrefix}/files/copy`, {
+				srcPath: globalClipboard.path,
+				destPath,
 			});
-			if (!res.ok) {
-				const errJson = await res.json().catch(() => ({}));
-				throw new Error(errJson.message || "Failed to copy file");
-			}
 			fetchFiles(currentPath);
 		} catch (err: any) {
 			await showAlert("Error", `Paste failed: ${err.message}`);
@@ -75,16 +70,13 @@ export function useFileActions(
 		const name = await showPrompt("New Folder", "New folder name:");
 		if (!name) return;
 		try {
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 			const safeCurrentPath = currentPath.endsWith("/")
 				? currentPath
 				: `${currentPath}/`;
 			const destPath = currentPath === "/" ? name : safeCurrentPath + name;
-			const res = await fetch(
-				`${apiUrl}${apiPrefix}/files/mkdir?path=${encodeURIComponent(destPath)}`,
-				{ method: "POST" },
-			);
-			if (!res.ok) throw new Error("Failed to create directory");
+			await api.post(`${apiPrefix}/files/mkdir`, null, {
+				params: { path: destPath },
+			});
 			fetchFiles(currentPath);
 		} catch (err: any) {
 			await showAlert("Error", `Create folder failed: ${err.message}`);
@@ -95,20 +87,17 @@ export function useFileActions(
 		const name = await showPrompt("New File", "New file name:");
 		if (!name) return;
 		try {
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 			const safeCurrentPath = currentPath.endsWith("/")
 				? currentPath
 				: `${currentPath}/`;
 			const destPath = currentPath === "/" ? name : safeCurrentPath + name;
-			const res = await fetch(
-				`${apiUrl}${apiPrefix}/files/write?path=${encodeURIComponent(destPath)}`,
+			await api.post(
+				`${apiPrefix}/files/write`,
+				{ content: "" },
 				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ content: "" }),
+					params: { path: destPath },
 				},
 			);
-			if (!res.ok) throw new Error("Failed to create file");
 			fetchFiles(currentPath);
 		} catch (err: any) {
 			await showAlert("Error", `Create file failed: ${err.message}`);
@@ -119,18 +108,15 @@ export function useFileActions(
 		const newName = await showPrompt("Rename", "Enter new name:", file.name);
 		if (!newName || newName === file.name) return;
 		try {
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 			const safeCurrentPath = currentPath.endsWith("/")
 				? currentPath
 				: `${currentPath}/`;
 			const destPath =
 				currentPath === "/" ? newName : safeCurrentPath + newName;
-			const res = await fetch(`${apiUrl}${apiPrefix}/files/rename`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ srcPath: file.path, destPath }),
+			await api.post(`${apiPrefix}/files/rename`, {
+				srcPath: file.path,
+				destPath,
 			});
-			if (!res.ok) throw new Error("Failed to rename file");
 			fetchFiles(currentPath);
 		} catch (err: any) {
 			await showAlert("Error", `Rename failed: ${err.message}`);
@@ -146,12 +132,9 @@ export function useFileActions(
 		)
 			return;
 		try {
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-			const res = await fetch(
-				`${apiUrl}${apiPrefix}/files/delete?path=${encodeURIComponent(file.path)}`,
-				{ method: "POST" },
-			);
-			if (!res.ok) throw new Error("Failed to delete file");
+			await api.post(`${apiPrefix}/files/delete`, null, {
+				params: { path: file.path },
+			});
 			fetchFiles(currentPath);
 		} catch (err: any) {
 			await showAlert("Error", `Delete failed: ${err.message}`);

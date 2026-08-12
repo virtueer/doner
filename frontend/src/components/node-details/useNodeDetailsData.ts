@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { api } from "../../lib/api";
 
 export function useNodeDetailsData(
 	nodeId: string,
@@ -42,10 +43,7 @@ export function useNodeDetailsData(
 	const handleAction = async (action: "start" | "stop" | "restart") => {
 		try {
 			setActionLoading(action);
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-			await fetch(`${apiUrl}/api/containers/${rawId}/${action}`, {
-				method: "POST",
-			});
+			await api.post(`/api/containers/${rawId}/${action}`);
 			if (action === "restart" || action === "start") {
 				if (onAutoReopenRequest) {
 					onAutoReopenRequest(nodeId, nodeName, nodeType);
@@ -63,10 +61,8 @@ export function useNodeDetailsData(
 		const fetchData = async () => {
 			try {
 				setLoading(true);
-				const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-				const res = await fetch(`${apiUrl}/api/inspect/${nodeType}/${rawId}`);
-				if (!res.ok) throw new Error("Failed to fetch inspect data");
-				const json = await res.json();
+				const res = await api.get(`/api/inspect/${nodeType}/${rawId}`);
+				const json = res.data;
 
 				if (json.error) {
 					throw new Error(json.error);
@@ -75,13 +71,10 @@ export function useNodeDetailsData(
 				setData(json);
 
 				if (nodeType === "containerNode" || nodeType === "volumeNode") {
-					fetch(`${apiUrl}/api/system/df`)
+					api
+						.get("/api/system/df")
 						.then((dfRes) => {
-							if (dfRes.ok) return dfRes.json();
-							return null;
-						})
-						.then((dfJson) => {
-							if (dfJson) setSystemDf(dfJson);
+							if (dfRes.data) setSystemDf(dfRes.data);
 						})
 						.catch(console.error);
 				}

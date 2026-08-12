@@ -1,14 +1,17 @@
 import type { ReactNode } from "react";
-import {
+import { renderJsonHighlight } from "./logHighlight/json";
+import { renderLogfmtHighlight } from "./logHighlight/logfmt";
+import { renderPlainHighlight } from "./logHighlight/plain";
+import { detectFormat, stripAnsi } from "./logHighlight/utils";
+
+export type { LogFormat } from "./logHighlight/utils";
+export {
 	detectFormat,
 	detectLogLevel,
+	getLogLevelColor,
 	stripAnsi,
-} from "./log-highlight/logRules";
-import { renderJsonHighlight } from "./log-highlight/renderJsonHighlight";
-import { renderLogfmtHighlight } from "./log-highlight/renderLogfmtHighlight";
-import { renderPlainHighlight } from "./log-highlight/renderPlainHighlight";
-
-export { detectLogLevel, renderJsonHighlight };
+} from "./logHighlight/utils";
+export { renderJsonHighlight, renderLogfmtHighlight, renderPlainHighlight };
 
 export function highlightLog(text: string): ReactNode {
 	const clean = stripAnsi(text);

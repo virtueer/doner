@@ -1,5 +1,6 @@
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { api } from "../lib/api";
 
 export function LinksTab({ containerId }: { containerId: string }) {
 	const [links, setLinks] = useState<{ title: string; url: string }[]>([]);
@@ -7,10 +8,9 @@ export function LinksTab({ containerId }: { containerId: string }) {
 
 	useEffect(() => {
 		setLinksLoading(true);
-		const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-		fetch(`${apiUrl}/api/containers/${containerId}/links`)
-			.then((res) => res.json())
-			.then((data) => setLinks(data || []))
+		api
+			.get(`/api/containers/${containerId}/links`)
+			.then((res) => setLinks(res.data || []))
 			.catch(console.error)
 			.finally(() => setLinksLoading(false));
 	}, [containerId]);
@@ -18,15 +18,10 @@ export function LinksTab({ containerId }: { containerId: string }) {
 	const saveLinks = async (newLinks: { title: string; url: string }[]) => {
 		try {
 			setLinksLoading(true);
-			const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-			const res = await fetch(`${apiUrl}/api/containers/${containerId}/links`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ links: newLinks }),
+			await api.post(`/api/containers/${containerId}/links`, {
+				links: newLinks,
 			});
-			if (res.ok) {
-				setLinks(newLinks);
-			}
+			setLinks(newLinks);
 		} catch (err) {
 			console.error("Failed to save links:", err);
 		} finally {

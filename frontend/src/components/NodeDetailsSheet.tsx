@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { api } from "../lib/api";
 import { AttachTab } from "./AttachTab";
 import { ContainerLogs } from "./ContainerLogs";
 import { FileBrowser } from "./FileBrowser";
@@ -75,16 +76,9 @@ export function NodeDetailsSheet({
 					onConfirm: async (force) => {
 						try {
 							setDeleteLoading(true);
-							const apiUrl =
-								import.meta.env.VITE_API_URL || "http://localhost:3000";
-							const res = await fetch(
-								`${apiUrl}/api/delete/${nodeType}/${encodeURIComponent(rawId)}${force ? "?force=true" : ""}`,
-								{ method: "DELETE" },
+							await api.delete(
+								`/api/delete/${nodeType}/${encodeURIComponent(rawId)}${force ? "?force=true" : ""}`,
 							);
-							if (!res.ok) {
-								const err = await res.json().catch(() => ({}));
-								throw new Error(err.message || "Deletion failed");
-							}
 							setConfirmDialog(null);
 							onClose();
 						} catch (err: any) {
