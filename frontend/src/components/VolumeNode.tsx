@@ -1,7 +1,8 @@
 import { Handle, Position } from "@xyflow/react";
 import { HardDrive } from "lucide-react";
+import { memo } from "react";
 
-export function VolumeNode({ data }: { data: any }) {
+export const VolumeNode = memo(function VolumeNode({ data }: { data: any }) {
 	const displayName =
 		data.label.length > 20
 			? data.label.substring(0, 8) +
@@ -71,4 +72,4 @@ export function VolumeNode({ data }: { data: any }) {
 			)}
 		</div>
 	);
-}
+});

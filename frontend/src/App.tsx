@@ -7,7 +7,7 @@ import {
 	ReactFlowProvider,
 	useReactFlow,
 } from "@xyflow/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import type { Edge, Node } from "@xyflow/react";
 import { AppHeader } from "./components/AppHeader";
@@ -141,41 +141,53 @@ function Flow() {
 		setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50);
 	}, [edges, setNodes, fitView]);
 
-	const connectedNodes = highlightedNodeId
-		? getConnectedNodes(highlightedNodeId, edges)
-		: null;
+	const connectedNodes = useMemo(() => {
+		if (!highlightedNodeId) return null;
+		return getConnectedNodes(highlightedNodeId, edges);
+	}, [highlightedNodeId, getConnectedNodes, edges]);
 
-	const filteredNodes = nodes.map((node) => {
-		let opacity = 1;
-		if (searchQuery.trim()) {
-			const label = (node.data?.label as string)?.toLowerCase() || "";
-			if (!label.includes(searchQuery.toLowerCase())) opacity = 0.2;
+	const filteredNodes = useMemo(() => {
+		if (!searchQuery.trim() && !highlightedNodeId) {
+			return nodes;
 		}
-		if (highlightedNodeId && connectedNodes) {
-			if (!connectedNodes.has(node.id)) opacity = Math.min(opacity, 0.2);
-			else opacity = 1;
-		}
-		return {
-			...node,
-			style: { ...node.style, opacity, transition: "opacity 0.2s" },
-		};
-	});
+		const searchLower = searchQuery.trim().toLowerCase();
+		return nodes.map((node) => {
+			let opacity = 1;
+			if (searchLower) {
+				const label = (node.data?.label as string)?.toLowerCase() || "";
+				if (!label.includes(searchLower)) opacity = 0.2;
+			}
+			if (highlightedNodeId && connectedNodes) {
+				if (!connectedNodes.has(node.id)) opacity = Math.min(opacity, 0.2);
+				else opacity = 1;
+			}
+			if (node.style?.opacity === opacity) return node;
+			return {
+				...node,
+				style: { ...node.style, opacity, transition: "opacity 0.2s" },
+			};
+		});
+	}, [nodes, searchQuery, highlightedNodeId, connectedNodes]);
 
-	const filteredEdges = edges.map((edge) => {
-		let opacity = 1;
-		if (highlightedNodeId) {
+	const filteredEdges = useMemo(() => {
+		if (!highlightedNodeId) {
+			return edges;
+		}
+		return edges.map((edge) => {
+			let opacity = 1;
 			if (
 				edge.source !== highlightedNodeId &&
 				edge.target !== highlightedNodeId
 			) {
 				opacity = 0.2;
 			}
-		}
-		return {
-			...edge,
-			style: { ...edge.style, opacity, transition: "opacity 0.2s" },
-		};
-	});
+			if (edge.style?.opacity === opacity) return edge;
+			return {
+				...edge,
+				style: { ...edge.style, opacity, transition: "opacity 0.2s" },
+			};
+		});
+	}, [edges, highlightedNodeId]);
 
 	return (
 		<>

@@ -1,7 +1,8 @@
 import { Handle, Position } from "@xyflow/react";
 import { Network } from "lucide-react";
+import { memo } from "react";
 
-export function NetworkNode({ data }: { data: any }) {
+export const NetworkNode = memo(function NetworkNode({ data }: { data: any }) {
 	return (
 		<div className="w-[280px] rounded-xl border border-indigo-500/40 bg-indigo-950/60 backdrop-blur-md shadow-lg shadow-indigo-500/10 p-0 overflow-visible relative">
 			<Handle
@@ -42,4 +43,4 @@ export function NetworkNode({ data }: { data: any }) {
 			</div>
 		</div>
 	);
-}
+});

@@ -1,6 +1,7 @@
 import { Layers } from "lucide-react";
+import { memo } from "react";
 
-export function ImageNode({ data }: { data: any }) {
+export const ImageNode = memo(function ImageNode({ data }: { data: any }) {
 	const formatSize = (bytes: number) => {
 		if (!bytes) return "0 B";
 		const k = 1024;
@@ -111,4 +112,4 @@ export function ImageNode({ data }: { data: any }) {
 			</div>
 		</div>
 	);
-}
+});

@@ -1,7 +1,12 @@
 import { Handle, Position } from "@xyflow/react";
 import { Box } from "lucide-react";
+import { memo } from "react";
 
-export function ContainerNode({ data }: { data: any }) {
+export const ContainerNode = memo(function ContainerNode({
+	data,
+}: {
+	data: any;
+}) {
 	const isRunning = data.state === "running";
 	const isInternal = data.isInternal === true;
 
@@ -151,4 +156,4 @@ export function ContainerNode({ data }: { data: any }) {
 			</div>
 		</div>
 	);
-}
+});
