@@ -129,6 +129,7 @@ export function useTopologyData(setSelectedNode: (node: any) => void) {
 
 				if (action === "start" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} started`, "success");
+					fetchGraphData();
 					if (pendingReopenNodeRef.current) {
 						const pendingId = pendingReopenNodeRef.current.id.replace(
 							"cont-",
@@ -145,10 +146,13 @@ export function useTopologyData(setSelectedNode: (node: any) => void) {
 					}
 				} else if (action === "die" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} stopped`, "error");
+					fetchGraphData();
 				} else if (action === "create" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} created`, "info");
+					fetchGraphData();
 				} else if (action === "destroy" && type === "container") {
 					toast(`Container ${e.Actor?.Attributes?.name} deleted`, "info");
+					fetchGraphData();
 				}
 			} catch (_err) {}
 		};
