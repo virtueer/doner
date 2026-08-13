@@ -25,12 +25,16 @@ export class DockerAttachService {
 		return stream;
 	}
 
-	async attachSidecar(targetContainerId: string) {
+	async attachSidecar(
+		targetContainerId: string,
+		image = "alpine",
+		shell = "/bin/sh",
+	) {
 		const docker = this.dockerClient.docker;
 		const name = `doner-sidecar-${targetContainerId.substring(0, 12)}-${Math.random().toString(36).substring(7)}`;
 
-		const sidecar = await docker.createContainer({
-			Image: "alpine",
+		const containerOptions: any = {
+			Image: image,
 			Cmd: ["sleep", "infinity"],
 			name,
 			Labels: { "doner.internal": "true", "doner.sidecar": "true" },
@@ -40,7 +44,27 @@ export class DockerAttachService {
 				PidMode: `container:${targetContainerId}`,
 				NetworkMode: `container:${targetContainerId}`,
 			},
-		});
+		};
+
+		let sidecar: any;
+		try {
+			sidecar = await docker.createContainer(containerOptions);
+		} catch (err: any) {
+			if (err.statusCode === 404 && err.message.includes("No such image")) {
+				await new Promise((resolve, reject) => {
+					docker.pull(image, (pullErr: any, stream: any) => {
+						if (pullErr) return reject(pullErr);
+						docker.modem.followProgress(stream, (followErr: any) => {
+							if (followErr) return reject(followErr);
+							resolve(true);
+						});
+					});
+				});
+				sidecar = await docker.createContainer(containerOptions);
+			} else {
+				throw err;
+			}
+		}
 
 		await sidecar.start();
 
@@ -59,7 +83,7 @@ if [ ! -d "/proc/$TARGET_PID" ]; then
     exit 1
 fi
 
-TARGET_PATH=$(strings /proc/$TARGET_PID/environ | grep '^PATH=' | cut -d= -f2)
+TARGET_PATH=$(tr '\\0' '\\n' < /proc/$TARGET_PID/environ 2>/dev/null | grep '^PATH=' | cut -d= -f2)
 
 if [ -n "$TARGET_PATH" ]; then
     NEW_PATHS=""
@@ -75,7 +99,7 @@ if [ -n "$TARGET_PATH" ]; then
     export PATH="\${NEW_PATHS}\${PATH}"
 fi
 
-for env in $(strings /proc/$TARGET_PID/environ); do
+for env in $(tr '\\0' '\\n' < /proc/$TARGET_PID/environ 2>/dev/null); do
     key=$(echo "$env" | cut -d= -f1)
     val=$(echo "$env" | cut -d= -f2-)
     
@@ -86,9 +110,19 @@ for env in $(strings /proc/$TARGET_PID/environ); do
     fi
 done
 
-echo "🚀 Sidecar environment ready (Merged target container's PATH and ENV)"
+if [ -d "/proc/$TARGET_PID/root" ]; then
+    cd "/proc/$TARGET_PID/root" || true
+fi
 
-exec sh -i
+TARGET_SHELL="${shell}"
+
+if ! command -v "$TARGET_SHELL" >/dev/null 2>&1 && [ ! -x "$TARGET_SHELL" ]; then
+    TARGET_SHELL="sh"
+fi
+
+echo "🚀 Sidecar environment ready ($image - Merged target container's PATH and ENV)"
+
+exec "$TARGET_SHELL" -i
 `;
 
 		const exec = await sidecar.exec({

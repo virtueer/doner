@@ -7,6 +7,7 @@ interface AttachScreenProps {
 	containerName: string;
 	shell: string;
 	isSidecar?: boolean;
+	sidecarImage?: string;
 }
 
 export function AttachScreen({
@@ -14,10 +15,12 @@ export function AttachScreen({
 	containerName,
 	shell,
 	isSidecar,
+	sidecarImage = "alpine",
 }: AttachScreenProps) {
 	useEffect(() => {
-		document.title = `${containerName} — Attach (${shell})`;
-	}, [containerName, shell]);
+		const sidecarLabel = isSidecar ? ` [sidecar: ${sidecarImage}]` : "";
+		document.title = `${containerName} — Attach (${shell})${sidecarLabel}`;
+	}, [containerName, shell, isSidecar, sidecarImage]);
 
 	return (
 		<div className="absolute inset-0 bg-[#0c0c0c] text-green-400 flex flex-col font-mono text-sm overflow-hidden">
@@ -28,7 +31,14 @@ export function AttachScreen({
 					<span className="text-sm text-green-300 font-semibold">
 						{containerName}
 					</span>
-					<span className="text-xs text-green-700">— attach ({shell})</span>
+					<span className="text-xs text-green-700">
+						— attach ({shell})
+						{isSidecar && (
+							<span className="ml-1 text-xs text-amber-500/80">
+								[sidecar: {sidecarImage}]
+							</span>
+						)}
+					</span>
 				</div>
 				<div className="flex items-center gap-2">
 					<span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
@@ -42,6 +52,7 @@ export function AttachScreen({
 					containerId={containerId}
 					shell={shell}
 					isSidecar={isSidecar}
+					sidecarImage={sidecarImage}
 				/>
 			</div>
 		</div>

@@ -92,8 +92,12 @@ export class DockerService {
 		return this.attachService.attachToContainer(containerId, shell);
 	}
 
-	attachSidecar(targetContainerId: string) {
-		return this.attachService.attachSidecar(targetContainerId);
+	attachSidecar(
+		targetContainerId: string,
+		image = "alpine",
+		shell = "/bin/sh",
+	) {
+		return this.attachService.attachSidecar(targetContainerId, image, shell);
 	}
 
 	// --- Container Links ---

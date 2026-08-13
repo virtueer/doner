@@ -269,6 +269,7 @@ function App() {
 	const attachParam = params.get("attach");
 	const shellParam = params.get("shell") || "/bin/sh";
 	const sidecarParam = params.get("sidecar") === "true";
+	const sidecarImageParam = params.get("sidecarImage") || "alpine";
 	const filesParam = params.get("files");
 	const apiPrefixParam = params.get("apiPrefix");
 	const typeParam = params.get("type") as "volume" | "container";
@@ -284,6 +285,7 @@ function App() {
 				containerName={nameParam}
 				shell={shellParam}
 				isSidecar={sidecarParam}
+				sidecarImage={sidecarImageParam}
 			/>
 		);
 	}

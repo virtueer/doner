@@ -7,12 +7,14 @@ interface AttachTerminalProps {
 	containerId: string;
 	shell: string;
 	isSidecar?: boolean;
+	sidecarImage?: string;
 }
 
 export function AttachTerminal({
 	containerId,
 	shell,
 	isSidecar,
+	sidecarImage = "alpine",
 }: AttachTerminalProps) {
 	const terminalRef = useRef<HTMLDivElement>(null);
 	const termInstance = useRef<Terminal | null>(null);
@@ -50,16 +52,25 @@ export function AttachTerminal({
 
 		// Connect WebSocket
 		// If backend is running on port 3000 during dev, we use that
-		const apiUrl = import.meta.env.VITE_API_URL || `http://localhost:3000`;
+		const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 		const wsUrl = apiUrl.replace(/^http/, "ws");
 
+		const sidecarParams = isSidecar
+			? `&sidecar=true&sidecarImage=${encodeURIComponent(sidecarImage)}`
+			: "";
 		const ws = new WebSocket(
-			`${wsUrl}/api/attach?containerId=${containerId}&shell=${encodeURIComponent(shell)}${isSidecar ? "&sidecar=true" : ""}`,
+			`${wsUrl}/api/attach?containerId=${containerId}&shell=${encodeURIComponent(shell)}${sidecarParams}`,
 		);
 		wsRef.current = ws;
 
 		ws.onopen = () => {
-			term.writeln(`\x1b[32mConnected to ${containerId} via ${shell}\x1b[0m`);
+			if (isSidecar) {
+				term.writeln(
+					`\x1b[32mConnected to ${containerId} via sidecar (${sidecarImage})\x1b[0m`,
+				);
+			} else {
+				term.writeln(`\x1b[32mConnected to ${containerId} via ${shell}\x1b[0m`);
+			}
 		};
 
 		ws.onmessage = (event) => {
@@ -89,7 +100,7 @@ export function AttachTerminal({
 			}
 			term.dispose();
 		};
-	}, [containerId, shell, isSidecar]);
+	}, [containerId, shell, isSidecar, sidecarImage]);
 
 	return <div ref={terminalRef} className="w-full h-full overflow-hidden" />;
 }

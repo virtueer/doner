@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { formatBytes } from "./shortInfoUtils";
 
 interface SheetStatsBarProps {
 	stats: any;
@@ -7,15 +8,6 @@ interface SheetStatsBarProps {
 export const SheetStatsBar = memo(function SheetStatsBar({
 	stats,
 }: SheetStatsBarProps) {
-	const formatBytes = (bytes: number, decimals = 2) => {
-		if (!+bytes) return "0 Bytes";
-		const k = 1024;
-		const dm = decimals < 0 ? 0 : decimals;
-		const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-		const i = Math.floor(Math.log(bytes) / Math.log(k));
-		return `${parseFloat((bytes / k ** i).toFixed(dm))} ${sizes[i]}`;
-	};
-
 	if (!stats) {
 		return (
 			<div className="flex items-center gap-4 border-l border-white/10 pl-4 min-w-[200px] min-h-[24px]">

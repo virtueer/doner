@@ -49,10 +49,15 @@ export class DockerGateway implements OnGatewayConnection, OnGatewayDisconnect {
 			}
 
 			const isSidecar = url.searchParams.get("sidecar") === "true";
+			const sidecarImage = url.searchParams.get("sidecarImage") || "alpine";
 
 			let stream: any;
 			if (isSidecar) {
-				stream = await this.dockerService.attachSidecar(containerId);
+				stream = await this.dockerService.attachSidecar(
+					containerId,
+					sidecarImage,
+					shell,
+				);
 			} else {
 				stream = await this.dockerService.attachToContainer(containerId, shell);
 			}
