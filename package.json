@@ -1,7 +1,7 @@
 {
-	"name": "docker-network-visualizer",
+	"name": "doner",
 	"version": "1.0.0",
-	"description": "Docker Network Visualizer",
+	"description": "Interactive map of a Docker host, with logs, terminals and a file browser",
 	"scripts": {
 		"start": "concurrently \"pnpm run start:backend\" \"pnpm run start:frontend\"",
 		"start:backend": "cd backend && pnpm run dev",
@@ -22,5 +22,6 @@
 		"*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [
 			"biome check --write --no-errors-on-unmatched --unsafe"
 		]
-	}
+	},
+	"license": "MIT"
 }
