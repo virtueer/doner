@@ -1,16 +1,11 @@
 import type { Node } from "@xyflow/react";
 import { Panel } from "@xyflow/react";
-import {
-	Activity,
-	Box,
-	Database,
-	Layers,
-	Network,
-	RefreshCw,
-	Search,
-	Sparkles,
-} from "lucide-react";
+import { Activity, RefreshCw, Search, Sparkles } from "lucide-react";
 import type React from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { nodeMeta } from "./nodeMeta";
 
 interface AppHeaderProps {
 	searchInputRef: React.RefObject<HTMLInputElement | null>;
@@ -27,6 +22,9 @@ interface AppHeaderProps {
 	fetchGraphData: () => void;
 	setShowEvents: (show: boolean) => void;
 }
+
+const PANEL =
+	"rounded-xl border border-border bg-card/80 backdrop-blur-md shadow-xl";
 
 export function AppHeader({
 	searchInputRef,
@@ -45,69 +43,55 @@ export function AppHeader({
 }: AppHeaderProps) {
 	return (
 		<>
-			{/* Search Bar (Top Left) */}
 			<Panel position="top-left" className="m-4">
-				<div className="relative shadow-2xl rounded-xl">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-					<input
+				<div className={cn("relative w-64", PANEL)}>
+					<Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+					<Input
 						ref={searchInputRef}
-						type="text"
 						placeholder="Search nodes..."
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						onFocus={() => setIsSearchFocused(true)}
 						onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
 						onKeyDown={handleSearchKeyDown}
-						className="pl-9 pr-4 py-2.5 bg-card/95 backdrop-blur-md border border-white/30 rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary w-64 transition-all shadow-[0_4px_20px_rgba(0,0,0,0.5)] ring-1 ring-white/10"
+						className="h-10 border-0 bg-transparent pl-9 shadow-none"
 					/>
-					{isSearchFocused && matchedNodes.length > 0 && (
-						<div className="absolute top-full left-0 w-full mt-1 z-50 bg-card/95 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg overflow-hidden max-h-64 overflow-y-auto">
-							{matchedNodes.map((n, idx) => {
-								let Icon = Box;
-								let iconColor = "text-green-500";
-								let typeLabel = "Container";
 
-								if (n.type === "networkNode") {
-									Icon = Network;
-									iconColor = "text-indigo-500";
-									typeLabel = "Network";
-								} else if (n.type === "volumeNode") {
-									Icon = Database;
-									iconColor = "text-amber-500";
-									typeLabel = "Volume";
-								} else if (n.type === "containerNode") {
-									Icon = Box;
-									iconColor =
-										n.data?.state === "running"
-											? "text-green-500"
-											: "text-slate-400";
-									typeLabel = "Container";
-								} else if (n.type === "imageNode") {
-									Icon = Layers;
-									iconColor = "text-pink-500";
-									typeLabel = "Image";
-								}
+					{isSearchFocused && matchedNodes.length > 0 && (
+						<div className="absolute top-full left-0 z-50 mt-1.5 max-h-64 w-full overflow-y-auto rounded-lg border border-border bg-popover shadow-xl">
+							{matchedNodes.map((n, idx) => {
+								const meta = nodeMeta(n.type);
+								const Icon = meta.icon;
+								const dimmed =
+									n.type === "containerNode" && n.data?.state !== "running";
 
 								return (
-									<div
+									<button
 										key={n.id}
+										type="button"
 										onClick={() => handleSearchSelect(n.id)}
-										className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors ${
+										className={cn(
+											"flex w-full items-center justify-between px-3 py-2 text-sm transition-colors",
 											idx === searchSelectedIndex
-												? "bg-primary/20 text-primary"
-												: "hover:bg-white/5 text-foreground"
-										}`}
+												? "bg-accent text-accent-foreground"
+												: "hover:bg-accent/60",
+										)}
 									>
-										<div className="flex items-center gap-2 overflow-hidden">
-											<Icon className={`h-4 w-4 shrink-0 ${iconColor}`} />
+										<span className="flex min-w-0 items-center gap-2">
+											<Icon
+												className={cn(
+													"size-4 shrink-0",
+													dimmed ? "text-idle" : meta.text,
+												)}
+											/>
 											<span className="truncate">
 												{n.data?.label as string}
 											</span>
-										</div>
-										<span className="text-[10px] text-muted-foreground uppercase tracking-wider shrink-0 ml-2">
-											{typeLabel}
 										</span>
-									</div>
+										<span className="ml-2 shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
+											{meta.label}
+										</span>
+									</button>
 								);
 							})}
 						</div>
@@ -115,42 +99,27 @@ export function AppHeader({
 				</div>
 			</Panel>
 
-			{/* Floating toolbar top-right */}
 			<Panel
 				position="top-right"
-				className="flex items-center gap-2 m-4 bg-card/95 backdrop-blur-md p-1.5 rounded-xl border border-white/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)] ring-1 ring-white/10"
+				className={cn("m-4 flex items-center gap-1 p-1.5", PANEL)}
 			>
 				{loading && (
-					<span className="text-xs text-muted-foreground animate-pulse px-2 py-1 rounded">
+					<span className="px-2 text-xs text-muted-foreground animate-pulse">
 						Updating...
 					</span>
 				)}
-				<button
-					onClick={handleAutoLayout}
-					className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-foreground rounded-lg text-xs font-medium hover:bg-white/10 hover:border-white/20 transition-all border border-transparent"
-					title="Auto arrange nodes"
-				>
-					<Sparkles className="h-3.5 w-3.5" />
+				<Button variant="ghost" size="sm" onClick={handleAutoLayout}>
+					<Sparkles />
 					Auto Layout
-				</button>
-				<button
-					onClick={fetchGraphData}
-					className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-foreground rounded-lg text-xs font-medium hover:bg-white/10 hover:border-white/20 transition-all border border-transparent"
-					title="Refresh data"
-				>
-					<RefreshCw
-						className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-					/>
+				</Button>
+				<Button variant="ghost" size="sm" onClick={fetchGraphData}>
+					<RefreshCw className={cn(loading && "animate-spin")} />
 					Refresh
-				</button>
-				<button
-					onClick={() => setShowEvents(true)}
-					className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-foreground rounded-lg text-xs font-medium hover:bg-white/10 hover:border-white/20 transition-all border border-transparent ml-2"
-					title="View Events"
-				>
-					<Activity className="h-3.5 w-3.5" />
+				</Button>
+				<Button variant="ghost" size="sm" onClick={() => setShowEvents(true)}>
+					<Activity />
 					Events
-				</button>
+				</Button>
 			</Panel>
 		</>
 	);

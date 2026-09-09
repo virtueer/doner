@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../lib/api";
+import { api } from "@/lib/api";
 import { FileBrowser } from "./FileBrowser";
 
 export function FileBrowserScreen({
@@ -15,24 +15,25 @@ export function FileBrowserScreen({
 
 	useEffect(() => {
 		if (type !== "container") return;
-		const fetchMounts = async () => {
-			try {
-				const rawId = apiPrefix.split("/").pop() || "";
-				const res = await api.get(`/api/inspect/containerNode/${rawId}`);
-				if (res.data?.Mounts) setMounts(res.data.Mounts);
-			} catch (_e) {}
-		};
-		fetchMounts();
+		const rawId = apiPrefix.split("/").pop() || "";
+		api
+			.get(`/api/inspect/containerNode/${rawId}`)
+			.then((res) => setMounts(res.data?.Mounts ?? []))
+			.catch(() => setMounts([]));
 	}, [type, apiPrefix]);
 
+	useEffect(() => {
+		document.title = `${nodeName} — Files`;
+	}, [nodeName]);
+
 	return (
-		<div className="w-full h-screen dark text-foreground overflow-hidden flex flex-col bg-[#1e1e1e]">
+		<div className="h-screen overflow-hidden">
 			<FileBrowser
 				apiPrefix={apiPrefix}
 				nodeName={nodeName}
 				type={type}
 				mounts={mounts}
-				isFullscreen={true}
+				isFullscreen
 			/>
 		</div>
 	);

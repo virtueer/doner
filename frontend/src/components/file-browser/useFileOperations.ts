@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../../lib/api";
-import type { DialogState } from "./FileActionDialogs";
+import type { DialogState } from "@/components/common/AppDialog";
+import { api } from "@/lib/api";
 import { useFileActions } from "./useFileActions";
 import { useFileViewer } from "./useFileViewer";
 
@@ -9,70 +9,45 @@ export function useFileOperations(
 	onUnsavedChangesChange?: (hasUnsaved: boolean) => void,
 ) {
 	const [currentPath, setCurrentPath] = useState("/");
+	const [pathInput, setPathInput] = useState("");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [files, setFiles] = useState<any[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [dialog, setDialog] = useState<DialogState | null>(null);
-	const [pathInput, setPathInput] = useState("");
 
-	const showAlert = (title: string, message: string) => {
-		return new Promise<void>((resolve) => {
+	const ask = <T>(
+		config: Omit<DialogState, "isOpen" | "onConfirm" | "onCancel">,
+		onConfirm: (value?: string) => T,
+		onCancel: T,
+	) =>
+		new Promise<T>((resolve) => {
 			setDialog({
+				...config,
 				isOpen: true,
-				type: "alert",
-				title,
-				message,
-				onConfirm: () => {
+				onConfirm: (value) => {
 					setDialog(null);
-					resolve();
+					resolve(onConfirm(value));
 				},
 				onCancel: () => {
 					setDialog(null);
-					resolve();
+					resolve(onCancel);
 				},
 			});
 		});
-	};
 
-	const showConfirm = (title: string, message: string) => {
-		return new Promise<boolean>((resolve) => {
-			setDialog({
-				isOpen: true,
-				type: "confirm",
-				title,
-				message,
-				onConfirm: () => {
-					setDialog(null);
-					resolve(true);
-				},
-				onCancel: () => {
-					setDialog(null);
-					resolve(false);
-				},
-			});
-		});
-	};
+	const showAlert = (title: string, message: string) =>
+		ask<void>({ kind: "alert", title, message }, () => undefined, undefined);
 
-	const showPrompt = (title: string, message: string, defaultValue = "") => {
-		return new Promise<string | null>((resolve) => {
-			setDialog({
-				isOpen: true,
-				type: "prompt",
-				title,
-				message,
-				defaultValue,
-				onConfirm: (val) => {
-					setDialog(null);
-					resolve(val || null);
-				},
-				onCancel: () => {
-					setDialog(null);
-					resolve(null);
-				},
-			});
-		});
-	};
+	const showConfirm = (title: string, message: string) =>
+		ask({ kind: "confirm", title, message }, () => true, false);
+
+	const showPrompt = (title: string, message: string, defaultValue = "") =>
+		ask<string | null>(
+			{ kind: "prompt", title, message, defaultValue, confirmLabel: "Submit" },
+			(value) => value || null,
+			null,
+		);
 
 	const {
 		viewFile,
@@ -97,9 +72,7 @@ export function useFileOperations(
 				setLoading(true);
 				setError(null);
 				setViewFile(null);
-				const res = await api.get(`${apiPrefix}/files`, {
-					params: { path },
-				});
+				const res = await api.get(`${apiPrefix}/files`, { params: { path } });
 				setFiles(res.data);
 				setCurrentPath(path);
 				setPathInput(path.startsWith("/") ? path : `/${path}`);
@@ -116,16 +89,7 @@ export function useFileOperations(
 		fetchFiles("/");
 	}, [fetchFiles]);
 
-	const {
-		copiedFile,
-		setCopiedFile,
-		handleCopy,
-		handlePaste,
-		handleMkdir,
-		handleNewFile,
-		handleRename,
-		handleDelete,
-	} = useFileActions(
+	const actions = useFileActions(
 		apiPrefix,
 		currentPath,
 		files,
@@ -143,6 +107,7 @@ export function useFileOperations(
 	};
 
 	return {
+		...actions,
 		currentPath,
 		pathInput,
 		setPathInput,
@@ -161,19 +126,11 @@ export function useFileOperations(
 		saving,
 		selectedLanguage,
 		setSelectedLanguage,
-		copiedFile,
-		setCopiedFile,
 		dialog,
 		fetchFiles,
 		handleFileClick: (file: any) => handleFileClick(file, fetchFiles),
 		handleSave,
 		handleCloseFileView,
 		handleBack,
-		handleCopy,
-		handlePaste,
-		handleMkdir,
-		handleNewFile,
-		handleRename,
-		handleDelete,
 	};
 }

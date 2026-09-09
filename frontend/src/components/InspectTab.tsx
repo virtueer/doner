@@ -2,6 +2,7 @@ import { Check, Copy } from "lucide-react";
 import { memo, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { copyText } from "@/lib/clipboard";
 import { renderJsonHighlight } from "@/lib/logHighlight";
 
 export const InspectTab = memo(function InspectTab({
@@ -13,126 +14,84 @@ export const InspectTab = memo(function InspectTab({
 	loading: boolean;
 	error: string | null;
 }) {
-	const [copiedJson, setCopiedJson] = useState(false);
-
-	const handleCopyJson = () => {
-		if (!data) return;
-		const jsonStr = JSON.stringify(data, null, 2);
-
-		if (navigator.clipboard && window.isSecureContext) {
-			navigator.clipboard.writeText(jsonStr);
-		} else {
-			const textArea = document.createElement("textarea");
-			textArea.value = jsonStr;
-			textArea.style.position = "fixed";
-			textArea.style.left = "-999999px";
-			textArea.style.top = "-999999px";
-			document.body.appendChild(textArea);
-			textArea.focus();
-			textArea.select();
-			try {
-				document.execCommand("copy");
-			} catch (error) {
-				console.error("Fallback copy failed", error);
-			}
-			textArea.remove();
-		}
-
-		setCopiedJson(true);
-		setTimeout(() => setCopiedJson(false), 2000);
-	};
+	const [copied, setCopied] = useState(false);
 
 	const rootKeys = useMemo(() => (data ? Object.keys(data) : []), [data]);
 
-	const renderedSections = useMemo(() => {
+	const sections = useMemo(() => {
 		if (!data) return null;
 		return rootKeys.map((key, index) => {
-			const str = JSON.stringify({ [key]: data[key] }, null, 2);
-			const inner = str.substring(2, str.length - 2);
+			const json = JSON.stringify({ [key]: data[key] }, null, 2);
 			return (
 				<span
 					key={key}
 					id={`json-section-${key}`}
-					className="scroll-mt-32 block"
+					className="block scroll-mt-32"
 				>
-					{renderJsonHighlight(inner)}
-					{index < rootKeys.length - 1 ? (
-						<span style={{ color: "rgba(255,255,255,0.3)" }}>,</span>
-					) : (
-						""
+					{renderJsonHighlight(json.substring(2, json.length - 2))}
+					{index < rootKeys.length - 1 && (
+						<span className="text-muted-foreground">,</span>
 					)}
 				</span>
 			);
 		});
 	}, [data, rootKeys]);
 
-	if (loading) {
-		return (
-			<div className="flex h-full items-center justify-center text-muted-foreground text-sm">
-				Loading inspect data...
-			</div>
-		);
-	}
+	const handleCopy = () => {
+		if (!data) return;
+		copyText(JSON.stringify(data, null, 2));
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
 
-	if (error) {
+	if (loading || error || !data) {
 		return (
-			<div className="flex h-full items-center justify-center text-destructive text-sm p-4 text-center">
-				Error: {error}
-			</div>
-		);
-	}
-
-	if (!data) {
-		return (
-			<div className="flex h-full items-center justify-center text-muted-foreground text-sm">
-				No inspect data available.
+			<div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">
+				{loading
+					? "Loading inspect data..."
+					: error
+						? `Error: ${error}`
+						: "No inspect data available."}
 			</div>
 		);
 	}
 
 	return (
 		<>
-			{/* Sticky Root Keys Bar (Wrapped without scrollbar) */}
-			<div className="bg-[#121212] border-b border-white/5 px-6 py-2 flex flex-wrap items-center gap-1.5 text-xs shrink-0">
-				<span className="text-white/40 font-mono text-[10px] uppercase tracking-wider shrink-0 mr-1">
+			<div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border bg-surface-raised px-6 py-2">
+				<span className="mr-1 shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
 					Jump to:
 				</span>
 				{rootKeys.map((key) => (
 					<Badge
 						key={key}
 						variant="outline"
-						onClick={() => {
-							const el = document.getElementById(`json-section-${key}`);
-							if (el) {
-								el.scrollIntoView({ behavior: "smooth", block: "start" });
-							}
-						}}
-						className="cursor-pointer font-mono text-[11px] font-normal text-white/70 hover:text-white transition-colors"
+						onClick={() =>
+							document
+								.getElementById(`json-section-${key}`)
+								?.scrollIntoView({ behavior: "smooth", block: "start" })
+						}
+						className="cursor-pointer font-mono text-[11px] font-normal"
 					>
 						{key}
 					</Badge>
 				))}
 			</div>
 
-			{/* JSON Content */}
-			<div className="flex-1 overflow-y-auto p-6 scroll-smooth relative">
+			<div className="relative flex-1 scroll-smooth overflow-y-auto p-6">
 				<Button
 					variant="outline"
 					size="icon-sm"
-					onClick={handleCopyJson}
-					className="absolute top-8 right-8 z-10"
+					onClick={handleCopy}
+					className="absolute right-8 top-8 z-10"
 					title="Copy JSON"
 				>
-					{copiedJson ? (
-						<Check className="h-4 w-4 text-green-500" />
-					) : (
-						<Copy className="h-4 w-4" />
-					)}
+					{copied ? <Check className="text-success" /> : <Copy />}
 				</Button>
-				<pre className="text-xs font-mono text-gray-300 overflow-x-auto bg-black/20 border border-white/5 p-4 rounded-lg m-0 relative">
-					<span style={{ color: "rgba(255,255,255,0.3)" }}>{`{\n`}</span>
-					{renderedSections}
-					<span style={{ color: "rgba(255,255,255,0.3)" }}>{`}`}</span>
+				<pre className="m-0 overflow-x-auto rounded-lg border border-border bg-background/40 p-4 font-mono text-xs">
+					<span className="text-muted-foreground">{"{\n"}</span>
+					{sections}
+					<span className="text-muted-foreground">{"}"}</span>
 				</pre>
 			</div>
 		</>

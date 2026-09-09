@@ -9,21 +9,21 @@ import {
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "@xyflow/react/dist/style.css";
-import type { Edge, Node } from "@xyflow/react";
-import { AppHeader } from "./components/AppHeader";
+import type { Node } from "@xyflow/react";
 import { AttachScreen } from "./components/AttachScreen";
-import { ContainerNode } from "./components/ContainerNode";
-import { EventsSheet } from "./components/EventsSheet";
 import { FileBrowserScreen } from "./components/FileBrowserScreen";
-import { ImageNode } from "./components/ImageNode";
-import { LogsTerminal } from "./components/LogsTerminal";
-import { NetworkNode } from "./components/NetworkNode";
+import { AppHeader } from "./components/graph/AppHeader";
+import { ContainerNode } from "./components/graph/ContainerNode";
+import { EventsSheet } from "./components/graph/EventsSheet";
+import { ImageNode } from "./components/graph/ImageNode";
+import { NetworkNode } from "./components/graph/NetworkNode";
+import { VolumeNode } from "./components/graph/VolumeNode";
+import { LogViewer } from "./components/log-viewer/LogViewer";
 import { NodeDetailsSheet } from "./components/NodeDetailsSheet";
 import { ToastContainer } from "./components/ToastContainer";
-import { VolumeNode } from "./components/VolumeNode";
 import { useNodeSearch } from "./hooks/useNodeSearch";
 import { useTopologyData } from "./hooks/useTopologyData";
-import { autoLayout } from "./utils/autoLayout";
+import { autoLayout } from "./lib/layout/autoLayout";
 
 const nodeTypes = {
 	networkNode: NetworkNode,
@@ -32,12 +32,23 @@ const nodeTypes = {
 	imageNode: ImageNode,
 };
 
+const DIMMED = 0.2;
+const HOVER_DELAY = 1000;
+
+interface SelectedNode {
+	id: string;
+	name: string;
+	type: string;
+}
+
 function Flow() {
-	const [selectedNode, setSelectedNode] = useState<{
-		id: string;
-		name: string;
-		type: string;
-	} | null>(null);
+	const [selectedNode, setSelectedNode] = useState<SelectedNode | null>(null);
+	const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(
+		null,
+	);
+	const searchInputRef = useRef<HTMLInputElement>(null);
+	const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const { fitView, setCenter, getNode } = useReactFlow();
 
 	const {
 		nodes,
@@ -56,44 +67,15 @@ function Flow() {
 		fetchGraphData,
 	} = useTopologyData(setSelectedNode);
 
-	const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(
-		null,
-	);
-	const searchInputRef = useRef<HTMLInputElement>(null);
-	const hoverTimeoutRef = useRef<any | null>(null);
-	const { fitView, setCenter, getNode } = useReactFlow();
-
-	const {
-		searchQuery,
-		setSearchQuery,
-		isSearchFocused,
-		setIsSearchFocused,
-		searchSelectedIndex,
-		matchedNodes,
-		handleSearchSelect,
-		handleSearchKeyDown,
-	} = useNodeSearch(nodes, getNode, setCenter);
-
-	const getConnectedNodes = useCallback(
-		(nodeId: string, currentEdges: Edge[]) => {
-			const connected = new Set<string>();
-			connected.add(nodeId);
-			const allEdges = rawDataRef.current?.edges || currentEdges;
-			allEdges.forEach((e: any) => {
-				if (e.source === nodeId) connected.add(e.target);
-				if (e.target === nodeId) connected.add(e.source);
-			});
-			return connected;
-		},
-		[rawDataRef],
-	);
+	const search = useNodeSearch(nodes, getNode, setCenter);
 
 	const onNodeMouseEnter = useCallback(
 		(_event: React.MouseEvent, node: Node) => {
 			if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-			hoverTimeoutRef.current = setTimeout(() => {
-				setHighlightedNodeId(node.id);
-			}, 1000);
+			hoverTimeoutRef.current = setTimeout(
+				() => setHighlightedNodeId(node.id),
+				HOVER_DELAY,
+			);
 		},
 		[],
 	);
@@ -107,19 +89,6 @@ function Flow() {
 		(params: any) => setEdges((eds) => addEdge(params, eds)),
 		[setEdges],
 	);
-
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if ((e.ctrlKey || e.metaKey) && e.key === "f") {
-				if (!selectedNode) {
-					e.preventDefault();
-					searchInputRef.current?.focus();
-				}
-			}
-		};
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [selectedNode]);
 
 	const handleNodeClick = useCallback(
 		(_event: React.MouseEvent, node: Node) => {
@@ -141,25 +110,39 @@ function Flow() {
 		setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50);
 	}, [edges, setNodes, fitView]);
 
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if ((e.ctrlKey || e.metaKey) && e.key === "f" && !selectedNode) {
+				e.preventDefault();
+				searchInputRef.current?.focus();
+			}
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [selectedNode]);
+
 	const connectedNodes = useMemo(() => {
 		if (!highlightedNodeId) return null;
-		return getConnectedNodes(highlightedNodeId, edges);
-	}, [highlightedNodeId, getConnectedNodes, edges]);
+		const connected = new Set<string>([highlightedNodeId]);
+		for (const e of rawDataRef.current?.edges || edges) {
+			if (e.source === highlightedNodeId) connected.add(e.target);
+			if (e.target === highlightedNodeId) connected.add(e.source);
+		}
+		return connected;
+	}, [highlightedNodeId, edges, rawDataRef]);
 
 	const filteredNodes = useMemo(() => {
-		if (!searchQuery.trim() && !highlightedNodeId) {
-			return nodes;
-		}
-		const searchLower = searchQuery.trim().toLowerCase();
+		const query = search.searchQuery.trim().toLowerCase();
+		if (!query && !highlightedNodeId) return nodes;
+
 		return nodes.map((node) => {
 			let opacity = 1;
-			if (searchLower) {
+			if (query) {
 				const label = (node.data?.label as string)?.toLowerCase() || "";
-				if (!label.includes(searchLower)) opacity = 0.2;
+				if (!label.includes(query)) opacity = DIMMED;
 			}
-			if (highlightedNodeId && connectedNodes) {
-				if (!connectedNodes.has(node.id)) opacity = Math.min(opacity, 0.2);
-				else opacity = 1;
+			if (connectedNodes) {
+				opacity = connectedNodes.has(node.id) ? 1 : Math.min(opacity, DIMMED);
 			}
 			if (node.style?.opacity === opacity) return node;
 			return {
@@ -167,20 +150,15 @@ function Flow() {
 				style: { ...node.style, opacity, transition: "opacity 0.2s" },
 			};
 		});
-	}, [nodes, searchQuery, highlightedNodeId, connectedNodes]);
+	}, [nodes, search.searchQuery, highlightedNodeId, connectedNodes]);
 
 	const filteredEdges = useMemo(() => {
-		if (!highlightedNodeId) {
-			return edges;
-		}
+		if (!highlightedNodeId) return edges;
 		return edges.map((edge) => {
-			let opacity = 1;
-			if (
-				edge.source !== highlightedNodeId &&
-				edge.target !== highlightedNodeId
-			) {
-				opacity = 0.2;
-			}
+			const opacity =
+				edge.source === highlightedNodeId || edge.target === highlightedNodeId
+					? 1
+					: DIMMED;
 			if (edge.style?.opacity === opacity) return edge;
 			return {
 				...edge,
@@ -211,28 +189,21 @@ function Flow() {
 				nodesFocusable={false}
 				edgesFocusable={false}
 			>
-				<Background color="#555" gap={16} />
+				<Background color="var(--border)" gap={16} />
 				<Controls />
 
 				<AppHeader
 					searchInputRef={searchInputRef}
-					searchQuery={searchQuery}
-					setSearchQuery={setSearchQuery}
-					isSearchFocused={isSearchFocused}
-					setIsSearchFocused={setIsSearchFocused}
-					matchedNodes={matchedNodes}
-					searchSelectedIndex={searchSelectedIndex}
-					handleSearchKeyDown={handleSearchKeyDown}
-					handleSearchSelect={handleSearchSelect}
 					loading={loading}
 					handleAutoLayout={handleAutoLayout}
 					fetchGraphData={fetchGraphData}
 					setShowEvents={setShowEvents}
+					{...search}
 				/>
 
 				{error && (
 					<Panel position="top-center" className="m-3">
-						<div className="bg-destructive/10 text-destructive border border-destructive px-4 py-2 rounded-md shadow-lg text-sm">
+						<div className="rounded-md border border-destructive bg-destructive/10 px-4 py-2 text-sm text-destructive shadow-lg">
 							{error}
 						</div>
 					</Panel>
@@ -262,46 +233,47 @@ function Flow() {
 	);
 }
 
-function App() {
+export default function App() {
 	const params = new URLSearchParams(window.location.search);
-	const logsParam = params.get("logs");
-	const nameParam = params.get("name");
-	const attachParam = params.get("attach");
-	const shellParam = params.get("shell") || "/bin/sh";
-	const sidecarParam = params.get("sidecar") === "true";
-	const sidecarImageParam = params.get("sidecarImage") || "alpine";
-	const filesParam = params.get("files");
-	const apiPrefixParam = params.get("apiPrefix");
-	const typeParam = params.get("type") as "volume" | "container";
+	const name = params.get("name");
+	const logs = params.get("logs");
+	const attach = params.get("attach");
+	const files = params.get("files");
+	const apiPrefix = params.get("apiPrefix");
+	const type = params.get("type") as "volume" | "container";
 
-	if (logsParam && nameParam) {
-		return <LogsTerminal containerId={logsParam} containerName={nameParam} />;
-	}
-
-	if (attachParam && nameParam) {
+	if (logs && name) {
 		return (
-			<AttachScreen
-				containerId={attachParam}
-				containerName={nameParam}
-				shell={shellParam}
-				isSidecar={sidecarParam}
-				sidecarImage={sidecarImageParam}
+			<LogViewer
+				containerId={logs}
+				containerName={name}
+				maxLines={2000}
+				documentTitle={`${name} — Logs`}
+				className="h-screen"
 			/>
 		);
 	}
 
-	if (filesParam === "true" && apiPrefixParam && nameParam && typeParam) {
+	if (attach && name) {
 		return (
-			<FileBrowserScreen
-				apiPrefix={apiPrefixParam}
-				nodeName={nameParam}
-				type={typeParam}
+			<AttachScreen
+				containerId={attach}
+				containerName={name}
+				shell={params.get("shell") || "/bin/sh"}
+				isSidecar={params.get("sidecar") === "true"}
+				sidecarImage={params.get("sidecarImage") || "alpine"}
 			/>
+		);
+	}
+
+	if (files === "true" && apiPrefix && name && type) {
+		return (
+			<FileBrowserScreen apiPrefix={apiPrefix} nodeName={name} type={type} />
 		);
 	}
 
 	return (
-		<div className="w-full h-screen dark bg-background text-foreground">
+		<div className="h-screen w-full">
 			<ReactFlowProvider>
 				<Flow />
 			</ReactFlowProvider>
@@ -309,5 +281,3 @@ function App() {
 		</div>
 	);
 }
-
-export default App;

@@ -1,5 +1,10 @@
 import { Editor } from "@monaco-editor/react";
 import { X } from "lucide-react";
+import { SimpleSelect, toOptions } from "@/components/common/SimpleSelect";
+import { Button } from "@/components/ui/button";
+import { SUPPORTED_LANGUAGES } from "./fileBrowserUtils";
+
+const LANGUAGE_OPTIONS = toOptions(SUPPORTED_LANGUAGES);
 
 interface FileEditorModalProps {
 	viewFile: string;
@@ -16,24 +21,6 @@ interface FileEditorModalProps {
 	handleCloseFileView: () => void;
 }
 
-const SUPPORTED_LANGUAGES = [
-	"javascript",
-	"typescript",
-	"json",
-	"html",
-	"css",
-	"markdown",
-	"yaml",
-	"shell",
-	"python",
-	"go",
-	"rust",
-	"c",
-	"cpp",
-	"java",
-	"plaintext",
-];
-
 export function FileEditorModal({
 	viewFile,
 	fileLoading,
@@ -49,79 +36,63 @@ export function FileEditorModal({
 	handleCloseFileView,
 }: FileEditorModalProps) {
 	return (
-		<div
-			className="absolute inset-0 flex flex-col bg-[#1e1e1e] z-10"
-			onClick={(e) => e.stopPropagation()}
-		>
-			<div className="px-4 py-2 bg-black/20 border-b border-white/5 flex items-center justify-between shrink-0">
-				<div className="flex items-center gap-4">
-					<span className="text-sm font-mono text-white/90 truncate">
-						{viewFile}
-					</span>
-					<select
+		<div className="absolute inset-0 z-10 flex flex-col bg-surface">
+			<header className="flex shrink-0 items-center justify-between gap-4 border-b border-border bg-surface-raised px-4 py-2">
+				<div className="flex min-w-0 items-center gap-4">
+					<span className="truncate font-mono text-sm">{viewFile}</span>
+					<SimpleSelect
 						value={selectedLanguage}
-						onChange={(e) => setSelectedLanguage(e.target.value)}
-						className="bg-[#121212] text-xs text-white/80 border border-white/10 rounded px-2 py-1 focus:outline-none focus:border-blue-500/50"
-					>
-						{SUPPORTED_LANGUAGES.map((lang) => (
-							<option key={lang} value={lang}>
-								{lang}
-							</option>
+						onValueChange={setSelectedLanguage}
+						options={LANGUAGE_OPTIONS}
+					/>
+				</div>
+
+				<div className="flex shrink-0 items-center gap-2">
+					{!fileLoading &&
+						(isEditing ? (
+							<>
+								<Button
+									size="sm"
+									variant="ghost"
+									disabled={saving}
+									onClick={() => {
+										setIsEditing(false);
+										setEditContent(fileContent);
+									}}
+								>
+									Cancel
+								</Button>
+								<Button size="sm" disabled={saving} onClick={handleSave}>
+									{saving ? "Saving..." : "Save"}
+								</Button>
+							</>
+						) : (
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={() => setIsEditing(true)}
+							>
+								Edit
+							</Button>
 						))}
-					</select>
+					<Button variant="ghost" size="icon-sm" onClick={handleCloseFileView}>
+						<X />
+					</Button>
 				</div>
-				<div className="flex items-center gap-2">
-					{!fileLoading && !isEditing && (
-						<button
-							onClick={() => setIsEditing(true)}
-							className="px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded text-white/80 transition-colors"
-						>
-							Edit
-						</button>
-					)}
-					{isEditing && (
-						<>
-							<button
-								onClick={() => {
-									setIsEditing(false);
-									setEditContent(fileContent);
-								}}
-								disabled={saving}
-								className="px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded text-white/80 transition-colors disabled:opacity-50"
-							>
-								Cancel
-							</button>
-							<button
-								onClick={handleSave}
-								disabled={saving}
-								className="px-2 py-1 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded transition-colors disabled:opacity-50"
-							>
-								{saving ? "Saving..." : "Save"}
-							</button>
-						</>
-					)}
-					<button
-						onClick={handleCloseFileView}
-						className="p-1 hover:bg-white/10 rounded text-white/70 ml-2"
-					>
-						<X className="h-4 w-4" />
-					</button>
-				</div>
-			</div>
-			<div className="flex-1 overflow-auto p-4 flex flex-col">
+			</header>
+
+			<div className="flex-1 overflow-hidden p-4">
 				{fileLoading ? (
-					<div className="text-white/50 text-sm animate-pulse">
+					<p className="animate-pulse text-sm text-muted-foreground">
 						Loading content...
-					</div>
+					</p>
 				) : (
 					<Editor
 						height="100%"
 						language={selectedLanguage}
 						theme="vs-dark"
 						value={isEditing ? editContent : fileContent}
-						onChange={(val) => {
-							if (isEditing) setEditContent(val || "");
-						}}
+						onChange={(value) => isEditing && setEditContent(value || "")}
 						options={{
 							readOnly: !isEditing,
 							minimap: { enabled: false },

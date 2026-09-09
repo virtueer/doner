@@ -1,12 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
-import { resolveOverlaps } from "./resolveOverlaps";
+import { resolveOverlaps } from "./overlaps";
 
-export { resolveOverlaps };
-
-/**
- * Auto-layout: places networks on left, containers in middle, volumes on right.
- * Groups containers by their primary network so edges stay short.
- */
 export function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
 	const images = nodes.filter((n) => n.type === "imageNode");
 	const networks = nodes.filter((n) => n.type === "networkNode");

@@ -1,92 +1,108 @@
 import { Database, FileText, Folder, Link } from "lucide-react";
-import { formatBytes } from "./fileBrowserUtils";
+import { Badge } from "@/components/ui/badge";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
+import { formatBytes } from "@/lib/format";
+import { FileContextMenu, type FileMenuActions } from "./FileContextMenu";
 
-interface FileListTableProps {
-	files: any[];
-	isMountPoint: (filePath: string) => boolean;
-	handleFileClick: (file: any) => void;
-	handleContextMenu: (e: React.MouseEvent, file: any) => void;
+function FileIcon({ file, isMount }: { file: any; isMount: boolean }) {
+	if (isMount) return <Database className="size-4 shrink-0 text-internal" />;
+	if (file.type === "directory")
+		return <Folder className="size-4 shrink-0 text-volume" />;
+	if (file.type === "symlink")
+		return <Link className="size-4 shrink-0 text-info" />;
+	return <FileText className="size-4 shrink-0 text-muted-foreground" />;
 }
 
 export function FileListTable({
 	files,
 	isMountPoint,
-	handleFileClick,
-	handleContextMenu,
-}: FileListTableProps) {
+	canPaste,
+	actions,
+	onOpen,
+}: {
+	files: any[];
+	isMountPoint: (path: string) => boolean;
+	canPaste: boolean;
+	actions: FileMenuActions;
+	onOpen: (file: any) => void;
+}) {
 	return (
-		<div className="overflow-y-auto h-full p-2">
-			<table className="w-full text-left border-collapse table-auto">
-				<thead>
-					<tr className="border-b border-white/5 text-xs text-white/40 font-medium">
-						<th className="pb-2 font-normal pl-2 w-full">Name</th>
-						<th className="pb-2 font-normal px-4 whitespace-nowrap w-[1%] text-right">
+		<div className="h-full overflow-y-auto p-2">
+			<Table>
+				<TableHeader>
+					<TableRow>
+						<TableHead className="w-full pl-2">Name</TableHead>
+						<TableHead className="w-[1%] whitespace-nowrap px-4 text-right">
 							Size
-						</th>
-						<th className="pb-2 font-normal whitespace-nowrap w-[1%] pr-4 text-right">
+						</TableHead>
+						<TableHead className="w-[1%] whitespace-nowrap pr-4 text-right">
 							Modified
-						</th>
-					</tr>
-				</thead>
-				<tbody>
-					{files.map((f, i) => {
-						const isMount = isMountPoint(f.path);
+						</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
+					{files.map((file) => {
+						const isMount = isMountPoint(file.path);
+						const modified = new Date(file.mtime).toLocaleString();
+
 						return (
-							<tr
-								key={i}
-								onClick={() => handleFileClick(f)}
-								onContextMenu={(e) => {
-									e.stopPropagation();
-									handleContextMenu(e, f);
-								}}
-								className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors group h-10"
+							<FileContextMenu
+								key={file.path}
+								file={file}
+								canPaste={canPaste}
+								actions={actions}
+								render={
+									<TableRow
+										onClick={() => onOpen(file)}
+										className="group h-10 cursor-pointer"
+									/>
+								}
 							>
-								<td className="py-2 pl-2 max-w-0 overflow-hidden">
-									<div className="flex items-center gap-2 min-w-0">
-										{isMount ? (
-											<Database className="h-4 w-4 text-purple-500 shrink-0" />
-										) : f.type === "directory" ? (
-											<Folder className="h-4 w-4 text-amber-500 shrink-0" />
-										) : f.type === "symlink" ? (
-											<Link className="h-4 w-4 text-cyan-400 shrink-0" />
-										) : (
-											<FileText className="h-4 w-4 text-slate-400 shrink-0" />
-										)}
+								<TableCell className="max-w-0 overflow-hidden py-2 pl-2">
+									<div className="flex min-w-0 items-center gap-2">
+										<FileIcon file={file} isMount={isMount} />
 										<span
-											className="text-sm text-white/90 truncate group-hover:text-blue-400 transition-colors"
-											title={f.name}
+											className="truncate text-sm transition-colors group-hover:text-primary"
+											title={file.name}
 										>
-											{f.name}
+											{file.name}
 										</span>
 										{isMount && (
-											<span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 ml-1 shrink-0">
+											<Badge
+												variant="outline"
+												className="shrink-0 text-internal"
+											>
 												Mount
-											</span>
+											</Badge>
 										)}
-										{f.type === "symlink" && (
-											<span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 ml-1 shrink-0">
+										{file.type === "symlink" && (
+											<Badge variant="outline" className="shrink-0 text-info">
 												Shortcut
-											</span>
+											</Badge>
 										)}
 									</div>
-								</td>
-								<td
-									className="py-2 px-4 whitespace-nowrap text-xs text-white/50 font-mono"
-									title={formatBytes(f.size)}
+								</TableCell>
+								<TableCell className="whitespace-nowrap px-4 py-2 text-right font-mono text-xs text-muted-foreground">
+									{formatBytes(file.size)}
+								</TableCell>
+								<TableCell
+									className="whitespace-nowrap py-2 pr-4 text-right text-xs text-muted-foreground"
+									title={modified}
 								>
-									{formatBytes(f.size)}
-								</td>
-								<td
-									className="py-2 whitespace-nowrap text-xs text-white/50 pr-4"
-									title={new Date(f.mtime).toLocaleString()}
-								>
-									{new Date(f.mtime).toLocaleString()}
-								</td>
-							</tr>
+									{modified}
+								</TableCell>
+							</FileContextMenu>
 						);
 					})}
-				</tbody>
-			</table>
+				</TableBody>
+			</Table>
 		</div>
 	);
 }

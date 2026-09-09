@@ -1,18 +1,18 @@
-import { useCallback, useState } from "react";
-import { api } from "../lib/api";
+import { useCallback, useRef, useState } from "react";
+import { AppDialog, type DialogState } from "@/components/common/AppDialog";
+import { OpenInNewTab } from "@/components/common/OpenInNewTab";
+import { ResizableSheet } from "@/components/common/ResizableSheet";
+import { LogViewer } from "@/components/log-viewer/LogViewer";
+import { Checkbox } from "@/components/ui/checkbox";
+import { api } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import { AttachTab } from "./AttachTab";
-import { ContainerLogs } from "./ContainerLogs";
 import { FileBrowser } from "./FileBrowser";
 import { InspectTab } from "./InspectTab";
 import { LinksTab } from "./LinksTab";
-import {
-	type ConfirmDialogState,
-	NodeActionDialogs,
-} from "./node-details/NodeActionDialogs";
 import { SheetHeader } from "./node-details/SheetHeader";
 import { SheetTabBar, type TabType } from "./node-details/SheetTabBar";
 import { useNodeDetailsData } from "./node-details/useNodeDetailsData";
-import { useResizableSheet } from "./node-details/useResizableSheet";
 
 export function NodeDetailsSheet({
 	nodeId,
@@ -29,7 +29,6 @@ export function NodeDetailsSheet({
 	onOpenNode?: (id: string, name: string, type: string) => void;
 	onAutoReopenRequest?: (id: string, name: string, type: string) => void;
 }) {
-	const { sheetWidth, handleMouseDown } = useResizableSheet();
 	const {
 		rawId,
 		isContainer,
@@ -51,88 +50,81 @@ export function NodeDetailsSheet({
 
 	const [activeTab, setActiveTab] = useState<TabType>("inspect");
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-	const [forceCheck, setForceCheck] = useState(false);
+	const [forceDelete, setForceDelete] = useState(false);
+	const forceDeleteRef = useRef(false);
 	const [deleteLoading, setDeleteLoading] = useState(false);
-	const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(
-		null,
-	);
+	const [dialog, setDialog] = useState<DialogState | null>(null);
+
+	const closeDialog = () => setDialog(null);
+	const updateForceDelete = (value: boolean) => {
+		forceDeleteRef.current = value;
+		setForceDelete(value);
+	};
 
 	const handleDeleteClick = () => {
-		const isContainerOrImage = isContainer || nodeType === "imageNode";
-		setConfirmDialog({
+		setDialog({
 			isOpen: true,
+			kind: "confirm",
 			title: `Delete ${nodeType.replace("Node", "")}`,
 			message:
 				"Are you sure you want to delete this resource? This is step 1 of 2.",
+			onCancel: closeDialog,
 			onConfirm: () => {
-				setForceCheck(false);
-				setConfirmDialog({
+				updateForceDelete(false);
+				setDialog({
 					isOpen: true,
+					kind: "confirm",
+					destructive: true,
 					title: "Final Warning",
 					message:
 						"Are you ABSOLUTELY sure? This action is permanent and cannot be undone.",
-					isDeleteStep2: true,
-					showForceOption: isContainerOrImage,
-					onConfirm: async (force) => {
+					confirmLabel: "Yes, DELETE it",
+					onCancel: closeDialog,
+					onConfirm: async () => {
 						try {
 							setDeleteLoading(true);
 							await api.delete(
-								`/api/delete/${nodeType}/${encodeURIComponent(rawId)}${force ? "?force=true" : ""}`,
+								`/api/delete/${nodeType}/${encodeURIComponent(rawId)}${
+									forceDeleteRef.current ? "?force=true" : ""
+								}`,
 							);
-							setConfirmDialog(null);
+							closeDialog();
 							onClose();
 						} catch (err: any) {
-							console.error("Delete failed:", err);
-							alert(`Delete failed: ${err.message}`);
-							setConfirmDialog(null);
+							toast(`Delete failed: ${err.message}`, "error");
+							closeDialog();
 						} finally {
 							setDeleteLoading(false);
 						}
 					},
-					onCancel: () => setConfirmDialog(null),
 				});
 			},
-			onCancel: () => setConfirmDialog(null),
 		});
 	};
 
 	const handleClose = useCallback(() => {
-		if (hasUnsavedChanges) {
-			setConfirmDialog({
-				isOpen: true,
-				title: "Unsaved Changes",
-				message: "You have unsaved changes. Are you sure you want to close?",
-				onConfirm: () => {
-					setConfirmDialog(null);
-					onClose();
-				},
-				onCancel: () => {
-					setConfirmDialog(null);
-				},
-			});
-			return;
-		}
-		onClose();
+		if (!hasUnsavedChanges) return onClose();
+		setDialog({
+			isOpen: true,
+			kind: "confirm",
+			title: "Unsaved Changes",
+			message: "You have unsaved changes. Are you sure you want to close?",
+			onCancel: () => setDialog(null),
+			onConfirm: () => {
+				setDialog(null);
+				onClose();
+			},
+		});
 	}, [hasUnsavedChanges, onClose]);
+
+	const volumeName = data?.Name || rawId;
+	const showForceOption =
+		dialog?.destructive && (isContainer || nodeType === "imageNode");
 
 	return (
 		<>
-			<div
-				className="fixed inset-0 bg-background/50 backdrop-blur-sm z-40 transition-opacity"
-				onClick={handleClose}
-			/>
-			<div
-				className="fixed inset-y-0 right-0 z-50 bg-card border-l border-border shadow-2xl flex flex-col animate-slide-in-right will-change-transform"
-				style={{ width: sheetWidth }}
-			>
-				<div
-					className="absolute left-0 top-0 bottom-0 w-2 -ml-1 cursor-col-resize hover:bg-primary/20 transition-colors z-50 group flex items-center justify-center"
-					onMouseDown={handleMouseDown}
-				>
-					<div className="h-8 w-1 rounded-full bg-border group-hover:bg-primary transition-colors" />
-				</div>
-
-				<div className="px-6 py-4 pb-0 border-b border-border bg-card z-10 shrink-0">
+			<ResizableSheet onClose={handleClose} initial={0.75} min={400}>
+				<div className="z-10 shrink-0 border-b border-border bg-card px-6 pt-4">
 					<SheetHeader
 						nodeName={nodeName}
 						nodeType={nodeType}
@@ -149,7 +141,6 @@ export function NodeDetailsSheet({
 						handleClose={handleClose}
 						onOpenNode={onOpenNode}
 					/>
-
 					<SheetTabBar
 						activeTab={activeTab}
 						setActiveTab={setActiveTab}
@@ -158,35 +149,40 @@ export function NodeDetailsSheet({
 					/>
 				</div>
 
-				<div className="flex-1 overflow-hidden flex flex-col relative bg-[#1e1e1e]">
+				<div className="relative flex flex-1 flex-col overflow-hidden bg-surface">
 					{activeTab === "inspect" && (
 						<InspectTab data={data} loading={loading} error={error} />
 					)}
 
 					{activeTab === "logs" && isContainer && (
-						<ContainerLogs containerId={rawId} containerName={nodeName} />
+						<LogViewer
+							containerId={rawId}
+							containerName={nodeName}
+							maxLines={500}
+							compact
+							className="h-full"
+							actions={
+								<OpenInNewTab params={{ logs: rawId, name: nodeName }} />
+							}
+						/>
 					)}
 
 					{activeTab === "attach" && isContainer && (
 						<AttachTab containerId={rawId} containerName={nodeName} />
 					)}
 
-					{activeTab === "files" && isVolume && (
+					{activeTab === "files" && (isVolume || isContainer) && (
 						<FileBrowser
-							apiPrefix={`/api/volumes/${encodeURIComponent(data?.Name || rawId)}`}
-							nodeName={data?.Name || rawId}
-							type="volume"
-							mounts={[]}
-							onUnsavedChangesChange={setHasUnsavedChanges}
-						/>
-					)}
-
-					{activeTab === "files" && isContainer && (
-						<FileBrowser
-							apiPrefix={`/api/containers/${encodeURIComponent(rawId)}`}
-							nodeName={data?.Name?.replace(/^\//, "") || rawId}
-							type="container"
-							mounts={data?.Mounts || []}
+							apiPrefix={
+								isVolume
+									? `/api/volumes/${encodeURIComponent(volumeName)}`
+									: `/api/containers/${encodeURIComponent(rawId)}`
+							}
+							nodeName={
+								isVolume ? volumeName : data?.Name?.replace(/^\//, "") || rawId
+							}
+							type={isVolume ? "volume" : "container"}
+							mounts={isVolume ? [] : data?.Mounts || []}
 							onUnsavedChangesChange={setHasUnsavedChanges}
 						/>
 					)}
@@ -195,13 +191,23 @@ export function NodeDetailsSheet({
 						<LinksTab containerId={rawId} />
 					)}
 				</div>
-			</div>
+			</ResizableSheet>
 
-			<NodeActionDialogs
-				confirmDialog={confirmDialog}
-				forceCheck={forceCheck}
-				setForceCheck={setForceCheck}
-			/>
+			<AppDialog dialog={dialog}>
+				{showForceOption && (
+					<label
+						htmlFor="force-delete"
+						className="flex w-fit cursor-pointer items-center gap-2 text-sm"
+					>
+						<Checkbox
+							id="force-delete"
+							checked={forceDelete}
+							onCheckedChange={(checked) => updateForceDelete(checked === true)}
+						/>
+						Force delete (even if running/used)
+					</label>
+				)}
+			</AppDialog>
 		</>
 	);
 }

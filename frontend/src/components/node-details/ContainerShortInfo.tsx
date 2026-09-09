@@ -1,15 +1,8 @@
 import { memo } from "react";
+import { InfoItem } from "@/components/common/InfoItem";
+import { formatUptime } from "@/lib/format";
 import { ContainerSizeInfo } from "./ContainerSizeInfo";
 import { SheetStatsBar } from "./SheetStatsBar";
-import { formatUptime } from "./shortInfoUtils";
-
-interface ContainerShortInfoProps {
-	data: any;
-	stats: any;
-	systemDf: any;
-	handleClose: () => void;
-	onOpenNode?: (id: string, name: string, type: string) => void;
-}
 
 export const ContainerShortInfo = memo(function ContainerShortInfo({
 	data,
@@ -17,31 +10,29 @@ export const ContainerShortInfo = memo(function ContainerShortInfo({
 	systemDf,
 	handleClose,
 	onOpenNode,
-}: ContainerShortInfoProps) {
+}: {
+	data: any;
+	stats: any;
+	systemDf: any;
+	handleClose: () => void;
+	onOpenNode?: (id: string, name: string, type: string) => void;
+}) {
+	const running = Boolean(data.State?.Running);
+
 	return (
-		<div className="flex flex-col gap-2 mt-2 text-xs text-muted-foreground w-full">
-			<div className="flex flex-wrap items-center gap-4">
-				<div className="flex items-center gap-1">
-					<span className="font-semibold text-foreground/80">ID:</span>{" "}
-					{data.Id?.substring(0, 12)}
-				</div>
-				<div className="flex items-center gap-1">
-					<span className="font-semibold text-foreground/80">Image:</span>{" "}
-					{data.Config?.Image}
-				</div>
-				<div className="flex items-center gap-1">
-					<span className="font-semibold text-foreground/80">State:</span>
-					<span
-						className={data.State?.Running ? "text-green-500" : "text-red-500"}
-					>
+		<div className="mt-2 flex w-full flex-col gap-2 text-xs text-muted-foreground">
+			<div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+				<InfoItem label="ID">{data.Id?.substring(0, 12)}</InfoItem>
+				<InfoItem label="Image">{data.Config?.Image}</InfoItem>
+				<InfoItem label="State">
+					<span className={running ? "text-success" : "text-destructive"}>
 						{data.State?.Status}
 					</span>
-				</div>
-				{data.State?.Running && data.State?.StartedAt && (
-					<div className="flex items-center gap-1">
-						<span className="font-semibold text-foreground/80">Uptime:</span>{" "}
+				</InfoItem>
+				{running && data.State?.StartedAt && (
+					<InfoItem label="Uptime">
 						{formatUptime(data.State.StartedAt)}
-					</div>
+					</InfoItem>
 				)}
 				<SheetStatsBar stats={stats} />
 			</div>

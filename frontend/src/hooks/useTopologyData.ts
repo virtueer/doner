@@ -1,9 +1,9 @@
 import type { Edge, Node } from "@xyflow/react";
 import { useEdgesState, useNodesState } from "@xyflow/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../lib/api";
-import { toast } from "../lib/toast";
-import { resolveOverlaps } from "../utils/autoLayout";
+import { API_URL, api } from "@/lib/api";
+import { resolveOverlaps } from "@/lib/layout/overlaps";
+import { toast } from "@/lib/toast";
 
 function areNodesEqual(prev: Node[], next: Node[]): boolean {
 	if (prev.length !== next.length) return false;
@@ -109,8 +109,7 @@ export function useTopologyData(setSelectedNode: (node: any) => void) {
 		fetchGraphData();
 		const interval = setInterval(fetchGraphData, 10000);
 
-		const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-		const es = new EventSource(`${apiUrl}/api/events`);
+		const es = new EventSource(`${API_URL}/api/events`);
 		es.onmessage = (event) => {
 			try {
 				const e = JSON.parse(event.data);

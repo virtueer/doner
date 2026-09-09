@@ -1,7 +1,13 @@
-import { Box, Database, Info, Network, Trash2, X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { memo } from "react";
+import { nodeMeta } from "@/components/graph/nodeMeta";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import { SheetShortInfo } from "./SheetShortInfo";
+
+type ContainerAction = "start" | "stop" | "restart";
 
 interface SheetHeaderProps {
 	nodeName: string;
@@ -12,9 +18,9 @@ interface SheetHeaderProps {
 	loading: boolean;
 	stats: any;
 	systemDf: any;
-	actionLoading: "start" | "stop" | "restart" | null;
+	actionLoading: ContainerAction | null;
 	deleteLoading: boolean;
-	handleAction: (action: "start" | "stop" | "restart") => void;
+	handleAction: (action: ContainerAction) => void;
 	handleDeleteClick: () => void;
 	handleClose: () => void;
 	onOpenNode?: (id: string, name: string, type: string) => void;
@@ -36,32 +42,37 @@ export const SheetHeader = memo(function SheetHeader({
 	handleClose,
 	onOpenNode,
 }: SheetHeaderProps) {
+	const meta = nodeMeta(nodeType);
+	const Icon = meta.icon;
+	const running = Boolean(data?.State?.Running);
+	const busy = actionLoading !== null;
+
 	return (
-		<div className="flex items-start justify-between">
-			<div>
-				<h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-					{isContainer ? (
-						<Box
-							className={`h-5 w-5 ${data?.State?.Running ? "text-green-500" : "text-primary"}`}
-						/>
-					) : isVolume ? (
-						<Database className="h-5 w-5 text-primary" />
-					) : nodeType === "networkNode" ? (
-						<Network className="h-5 w-5 text-primary" />
-					) : (
-						<Info className="h-5 w-5 text-primary" />
-					)}
-					{nodeName}
-					<span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wider ml-2 align-middle">
-						{nodeType.replace("Node", "")}
-					</span>
+		<div className="flex items-start justify-between gap-4">
+			<div className="min-w-0">
+				<h2 className="flex items-center gap-2 text-lg font-semibold">
+					<Icon
+						className={cn(
+							"size-5 shrink-0",
+							isContainer && !running ? "text-idle" : meta.text,
+						)}
+					/>
+					<span className="truncate">{nodeName}</span>
+					<Badge
+						variant="outline"
+						className="shrink-0 uppercase tracking-wider"
+					>
+						{meta.label}
+					</Badge>
 				</h2>
+
 				{loading ? (
-					<div className="h-4 w-64 bg-white/5 animate-pulse rounded mt-2" />
+					<Skeleton className="mt-3 h-4 w-64" />
 				) : (
 					<SheetShortInfo
 						nodeType={nodeType}
 						isContainer={isContainer}
+						isVolume={isVolume}
 						data={data}
 						stats={stats}
 						systemDf={systemDf}
@@ -70,52 +81,51 @@ export const SheetHeader = memo(function SheetHeader({
 					/>
 				)}
 			</div>
-			<div className="flex items-center gap-2 mt-4 sm:mt-0">
+
+			<div className="flex shrink-0 items-center gap-1">
 				{isContainer && (
-					<div className="flex items-center gap-2 mr-4 border-r border-border/20 pr-4">
+					<div className="mr-2 flex items-center gap-1.5 border-r border-border pr-3">
 						<Button
 							size="sm"
-							variant="default"
 							onClick={() => handleAction("start")}
-							disabled={data?.State?.Running || actionLoading !== null}
-							className="bg-green-600 text-white hover:bg-green-700 border border-black w-16"
+							disabled={running || busy}
+							className="w-16 bg-success/15 text-success hover:bg-success/25"
 						>
 							{actionLoading === "start" ? "..." : "Start"}
 						</Button>
 						<Button
 							size="sm"
-							variant="default"
+							variant="destructive"
 							onClick={() => handleAction("stop")}
-							disabled={!data?.State?.Running || actionLoading !== null}
-							className="bg-red-600 text-white hover:bg-red-700 border border-black w-16"
+							disabled={!running || busy}
+							className="w-16"
 						>
 							{actionLoading === "stop" ? "..." : "Stop"}
 						</Button>
 						<Button
 							size="sm"
-							variant="default"
+							variant="outline"
 							onClick={() => handleAction("restart")}
-							disabled={actionLoading !== null}
-							className="bg-blue-600 text-white hover:bg-blue-700 border border-black w-20"
+							disabled={busy}
+							className="w-20"
 						>
 							{actionLoading === "restart" ? "..." : "Restart"}
 						</Button>
 					</div>
 				)}
-				<button
+				<Button
+					variant="ghost"
+					size="icon-sm"
 					onClick={handleDeleteClick}
 					disabled={deleteLoading}
-					className="p-2 ml-2 mr-2 rounded-md hover:bg-red-500/20 text-red-500/70 hover:text-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-					title="Delete Resource"
+					title="Delete resource"
+					className="text-destructive hover:bg-destructive/10 hover:text-destructive"
 				>
-					{deleteLoading ? "..." : <Trash2 className="h-5 w-5" />}
-				</button>
-				<button
-					onClick={handleClose}
-					className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-				>
-					<X className="h-5 w-5" />
-				</button>
+					<Trash2 />
+				</Button>
+				<Button variant="ghost" size="icon-sm" onClick={handleClose}>
+					<X />
+				</Button>
 			</div>
 		</div>
 	);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../../lib/api";
+import { API_URL, api } from "@/lib/api";
 
 export function useNodeDetailsData(
 	nodeId: string,
@@ -23,8 +23,7 @@ export function useNodeDetailsData(
 
 	useEffect(() => {
 		if (!isContainer) return;
-		const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-		const es = new EventSource(`${apiUrl}/api/container-stats/${rawId}`);
+		const es = new EventSource(`${API_URL}/api/container-stats/${rawId}`);
 
 		es.onmessage = (event) => {
 			try {

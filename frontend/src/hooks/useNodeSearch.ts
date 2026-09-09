@@ -34,10 +34,6 @@ export function useNodeSearch(
 		);
 	}, [nodes, searchQuery, recentSearches]);
 
-	useEffect(() => {
-		setSearchSelectedIndex(0);
-	}, []);
-
 	const handleSearchSelect = (nodeId: string) => {
 		const recent = JSON.parse(localStorage.getItem("recent-searches") || "[]");
 		const newRecent = [

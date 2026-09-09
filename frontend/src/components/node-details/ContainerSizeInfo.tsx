@@ -1,11 +1,41 @@
 import { memo } from "react";
-import { formatBytes } from "./shortInfoUtils";
+import { InfoItem } from "@/components/common/InfoItem";
+import { formatBytes } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
-interface ContainerSizeInfoProps {
-	data: any;
-	systemDf: any;
-	handleClose: () => void;
-	onOpenNode?: (id: string, name: string, type: string) => void;
+function ResourceChip({
+	label,
+	size,
+	accent,
+	title,
+	onClick,
+}: {
+	label: string;
+	size?: number;
+	accent: "image" | "volume";
+	title?: string;
+	onClick: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			title={title}
+			className={cn(
+				"flex max-w-[180px] items-center gap-1 rounded border px-2 py-0.5 transition-colors",
+				accent === "image"
+					? "border-image/25 bg-image/10 text-image hover:bg-image/20"
+					: "border-volume/25 bg-volume/10 text-volume hover:bg-volume/20",
+			)}
+		>
+			<span className="truncate">{label}</span>
+			{size !== undefined && (
+				<span className="shrink-0 text-[10px] opacity-70">
+					({formatBytes(size)})
+				</span>
+			)}
+		</button>
+	);
 }
 
 export const ContainerSizeInfo = memo(function ContainerSizeInfo({
@@ -13,16 +43,25 @@ export const ContainerSizeInfo = memo(function ContainerSizeInfo({
 	systemDf,
 	handleClose,
 	onOpenNode,
-}: ContainerSizeInfoProps) {
+}: {
+	data: any;
+	systemDf: any;
+	handleClose: () => void;
+	onOpenNode?: (id: string, name: string, type: string) => void;
+}) {
 	if (!systemDf) {
 		return (
-			<div className="flex flex-col gap-1 border-t border-white/5 pt-2 min-h-[42px] justify-center">
-				<span className="text-xs text-muted-foreground animate-pulse">
-					Loading size data...
-				</span>
+			<div className="flex min-h-[42px] items-center border-t border-border pt-2">
+				<span className="animate-pulse">Loading size data...</span>
 			</div>
 		);
 	}
+
+	const openNode = (id: string, name: string, type: string) => {
+		if (!onOpenNode) return;
+		handleClose();
+		onOpenNode(id, name, type);
+	};
 
 	const dfContainer = systemDf.Containers?.find(
 		(c: any) =>
@@ -41,102 +80,71 @@ export const ContainerSizeInfo = memo(function ContainerSizeInfo({
 			(data.Image && img.RepoTags?.includes(data.Image)),
 	);
 
-	// Image size: prefer (sizeRootFs - sizeRw) from container df, fallback to image df size
+	// Prefer the container's rootfs minus its writable layer, else the image df size.
 	const imageSize =
 		sizeRootFs !== undefined ? sizeRootFs - (sizeRw || 0) : dfImage?.Size;
 
-	const volumes = data.Mounts?.filter((m: any) => m.Type === "volume") || [];
-
+	const volumes = data.Mounts?.filter((m: any) => m.Type === "volume") ?? [];
 	const hasImage = Boolean(data.Config?.Image || data.Image);
 	const hasContainerSize = sizeRw !== undefined || dfContainer !== undefined;
-	const hasVolumes = volumes.length > 0;
+
+	if (!hasImage && !hasContainerSize && volumes.length === 0) {
+		return (
+			<div className="flex min-h-[42px] items-center border-t border-border pt-2">
+				No size or volume data available
+			</div>
+		);
+	}
 
 	return (
-		<div className="flex flex-col gap-1 border-t border-white/5 pt-2 min-h-[42px]">
-			<div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-				{hasImage && (
-					<div
-						className="flex items-center gap-1.5"
-						title="Underlying image size"
-					>
-						<span className="font-semibold text-foreground/80">Image:</span>
-						<div
-							onClick={() => {
-								if (onOpenNode) {
-									handleClose();
-									onOpenNode(
-										`img-${data.Image || data.Config?.Image}`,
-										data.Config?.Image || "Image",
-										"imageNode",
-									);
+		<div className="flex min-h-[42px] flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-2">
+			{hasImage && (
+				<InfoItem label="Image" title="Underlying image size">
+					<ResourceChip
+						label={data.Config?.Image || "Image"}
+						size={imageSize}
+						accent="image"
+						onClick={() =>
+							openNode(
+								`img-${data.Image || data.Config?.Image}`,
+								data.Config?.Image || "Image",
+								"imageNode",
+							)
+						}
+					/>
+				</InfoItem>
+			)}
+
+			{hasContainerSize && (
+				<InfoItem
+					label="Container Size"
+					title="Container's writable layer size"
+				>
+					<span className="text-internal">{formatBytes(sizeRw || 0)}</span>
+				</InfoItem>
+			)}
+
+			{volumes.length > 0 && (
+				<InfoItem label="Volumes" className="items-start">
+					<span className="flex flex-wrap gap-1.5">
+						{volumes.map((mount: any) => (
+							<ResourceChip
+								key={mount.Name}
+								label={mount.Name}
+								title={mount.Name}
+								size={
+									systemDf.Volumes?.find((v: any) => v.Name === mount.Name)
+										?.UsageData?.Size
 								}
-							}}
-							className="flex items-center gap-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded cursor-pointer transition-colors"
-						>
-							<span className="truncate max-w-[120px]">
-								{data.Config?.Image || "Image"}
-							</span>
-							{imageSize !== undefined && (
-								<span className="text-[10px] opacity-70">
-									({formatBytes(imageSize)})
-								</span>
-							)}
-						</div>
-					</div>
-				)}
-
-				{hasContainerSize && (
-					<div
-						className="flex items-center gap-1"
-						title="Container's writable layer size"
-					>
-						<span className="font-semibold text-foreground/80">
-							Container Size:
-						</span>
-						<span className="text-purple-400">{formatBytes(sizeRw || 0)}</span>
-					</div>
-				)}
-
-				{hasVolumes && (
-					<div className="flex items-center gap-2">
-						<span className="font-semibold text-foreground/80">Volumes:</span>
-						<div className="flex flex-wrap gap-1.5">
-							{volumes.map((m: any) => {
-								const volDf = systemDf.Volumes?.find(
-									(v: any) => v.Name === m.Name,
-								);
-								const size = volDf?.UsageData?.Size;
-								return (
-									<div
-										key={m.Name}
-										onClick={() => {
-											if (onOpenNode) {
-												handleClose();
-												onOpenNode(`vol-${m.Name}`, m.Name, "volumeNode");
-											}
-										}}
-										className="flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded cursor-pointer transition-colors"
-										title={m.Name}
-									>
-										<span className="truncate max-w-[100px]">{m.Name}</span>
-										{size !== undefined && (
-											<span className="text-[10px] opacity-70">
-												({formatBytes(size)})
-											</span>
-										)}
-									</div>
-								);
-							})}
-						</div>
-					</div>
-				)}
-
-				{!hasImage && !hasContainerSize && !hasVolumes && (
-					<span className="text-xs text-muted-foreground">
-						No size or volume data available
+								accent="volume"
+								onClick={() =>
+									openNode(`vol-${mount.Name}`, mount.Name, "volumeNode")
+								}
+							/>
+						))}
 					</span>
-				)}
-			</div>
+				</InfoItem>
+			)}
 		</div>
 	);
 });

@@ -1,11 +1,19 @@
-import { ArrowLeft, Download, ExternalLink, Search } from "lucide-react";
-import { memo, useEffect, useRef, useState } from "react";
-import { FileActionDialogs } from "./file-browser/FileActionDialogs";
-import { FileContextMenu } from "./file-browser/FileContextMenu";
-import { FileEditorModal } from "./file-browser/FileEditorModal";
-import { FileListTable } from "./file-browser/FileListTable";
-import { getGlobalClipboard } from "./file-browser/fileBrowserUtils";
-import { useFileOperations } from "./file-browser/useFileOperations";
+import { ArrowLeft, Download, Search } from "lucide-react";
+import { memo } from "react";
+import { AppDialog } from "@/components/common/AppDialog";
+import { OpenInNewTab } from "@/components/common/OpenInNewTab";
+import { CopiedFileBanner } from "@/components/file-browser/CopiedFileBanner";
+import {
+	FileContextMenu,
+	type FileMenuActions,
+} from "@/components/file-browser/FileContextMenu";
+import { FileEditorModal } from "@/components/file-browser/FileEditorModal";
+import { FileListTable } from "@/components/file-browser/FileListTable";
+import { getGlobalClipboard } from "@/components/file-browser/fileBrowserUtils";
+import { useFileOperations } from "@/components/file-browser/useFileOperations";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { API_URL } from "@/lib/api";
 
 export const FileBrowser = memo(function FileBrowser({
 	apiPrefix,
@@ -22,14 +30,6 @@ export const FileBrowser = memo(function FileBrowser({
 	isFullscreen?: boolean;
 	onUnsavedChangesChange?: (hasUnsaved: boolean) => void;
 }) {
-	const containerRef = useRef<HTMLDivElement>(null);
-	const [contextMenu, setContextMenu] = useState<{
-		visible: boolean;
-		x: number;
-		y: number;
-		file: any;
-	} | null>(null);
-
 	const {
 		currentPath,
 		pathInput,
@@ -65,59 +65,29 @@ export const FileBrowser = memo(function FileBrowser({
 		handleDelete,
 	} = useFileOperations(apiPrefix, onUnsavedChangesChange);
 
-	useEffect(() => {
-		const handleClick = () => setContextMenu(null);
-		document.addEventListener("click", handleClick);
-		return () => document.removeEventListener("click", handleClick);
-	}, []);
+	const exportUrl = (path?: string) =>
+		`${API_URL}${apiPrefix}/export${path ? `?path=${encodeURIComponent(path)}` : ""}`;
 
-	const handleExport = () => {
-		const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-		window.open(`${apiUrl}${apiPrefix}/export`, "_blank");
+	const actions: FileMenuActions = {
+		onEdit: (file) => handleFileClick(file).then(() => setIsEditing(true)),
+		onRename: handleRename,
+		onCopy: handleCopy,
+		onExport: (file) => window.open(exportUrl(file.path), "_blank"),
+		onDelete: handleDelete,
+		onNewFile: handleNewFile,
+		onNewFolder: handleMkdir,
+		onPaste: handlePaste,
 	};
 
-	const handleExportItem = (file: any) => {
-		const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-		window.open(
-			`${apiUrl}${apiPrefix}/export?path=${encodeURIComponent(file.path)}`,
-			"_blank",
-		);
-	};
-
-	const handleContextMenu = (e: React.MouseEvent, file: any) => {
-		e.preventDefault();
-		if (!containerRef.current) return;
-		const rect = containerRef.current.getBoundingClientRect();
-
-		let x = e.clientX - rect.left;
-		let y = e.clientY - rect.top;
-
-		const menuWidth = 192;
-		const menuHeight = 220;
-		if (x + menuWidth > rect.width) x = rect.width - menuWidth;
-		if (y + menuHeight > rect.height) y = rect.height - menuHeight;
-
-		setContextMenu({
-			visible: true,
-			x: Math.max(0, x),
-			y: Math.max(0, y),
-			file,
-		});
-	};
-
-	const handleEditContext = (file: any) => {
-		if (file.type !== "file") return;
-		handleFileClick(file).then(() => {
-			setIsEditing(true);
-		});
-	};
+	const clipboard = getGlobalClipboard();
+	const canPaste = Boolean(clipboard && clipboard.apiPrefix === apiPrefix);
 
 	const isMountPoint = (filePath: string) => {
-		if (!mounts || mounts.length === 0) return false;
-		const absolutePath = filePath.startsWith("/") ? filePath : `/${filePath}`;
+		if (mounts.length === 0) return false;
+		const absolute = filePath.startsWith("/") ? filePath : `/${filePath}`;
 		return mounts.some(
 			(m: any) =>
-				m.Destination === absolutePath || m.Destination === `${absolutePath}/`,
+				m.Destination === absolute || m.Destination === `${absolute}/`,
 		);
 	};
 
@@ -126,93 +96,75 @@ export const FileBrowser = memo(function FileBrowser({
 	);
 
 	return (
-		<div
-			className="flex flex-col h-full bg-[#1e1e1e] relative"
-			ref={containerRef}
-		>
-			<div className="flex items-center justify-between px-4 py-3 bg-[#252525] border-b border-white/5">
-				<div className="flex items-center gap-2 overflow-hidden flex-1 mr-4">
-					<button
+		<div className="relative flex h-full flex-col bg-surface">
+			<header className="flex items-center justify-between gap-4 border-b border-border bg-surface-raised px-4 py-2">
+				<div className="flex min-w-0 flex-1 items-center gap-2">
+					<Button
+						variant="ghost"
+						size="icon-sm"
 						onClick={handleBack}
 						disabled={currentPath === "/"}
-						className="p-1 rounded hover:bg-white/10 disabled:opacity-50 disabled:hover:bg-transparent text-white/80 shrink-0 transition-colors"
 					>
-						<ArrowLeft className="h-4 w-4" />
-					</button>
-					<div className="flex items-center text-xs text-white/70 font-mono shrink-0">
+						<ArrowLeft />
+					</Button>
+					<span className="shrink-0 font-mono text-xs text-muted-foreground">
 						{nodeName}:
-					</div>
+					</span>
 					<form
+						className="min-w-0 flex-1"
 						onSubmit={(e) => {
 							e.preventDefault();
 							fetchFiles(pathInput);
 						}}
-						className="flex-1 max-w-full"
 					>
-						<input
+						<Input
 							value={pathInput}
 							onChange={(e) => setPathInput(e.target.value)}
-							className="w-full bg-transparent border border-transparent focus:border-blue-500/50 rounded px-1 py-0.5 text-xs text-white/90 font-mono outline-none transition-colors"
 							placeholder="/path/to/folder"
+							className="h-7 border-transparent bg-transparent font-mono text-xs"
 						/>
 					</form>
 				</div>
-				<div className="flex items-center gap-2 shrink-0">
-					<div className="relative shrink-0 flex items-center mr-2">
-						<Search className="absolute left-2 h-3.5 w-3.5 text-white/40" />
-						<input
+
+				<div className="flex shrink-0 items-center gap-2">
+					<div className="relative">
+						<Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+						<Input
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
 							placeholder="Search files..."
-							className="pl-7 pr-2 py-1 w-32 focus:w-48 transition-all bg-black/20 border border-white/10 focus:border-blue-500/50 rounded-md text-xs text-white/90 outline-none"
+							className="h-7 w-32 pl-7 text-xs transition-all focus:w-48"
 						/>
 					</div>
 					{!isFullscreen && (
-						<button
-							onClick={() => {
-								const url = `${window.location.origin}?files=true&apiPrefix=${encodeURIComponent(apiPrefix)}&name=${encodeURIComponent(nodeName)}&type=${type}`;
-								window.open(url, "_blank");
+						<OpenInNewTab
+							params={{
+								files: "true",
+								apiPrefix,
+								name: nodeName,
+								type,
 							}}
-							className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-md transition-colors border border-white/20"
-						>
-							<ExternalLink className="h-3.5 w-3.5" />
-							Open in new tab
-						</button>
+						/>
 					)}
 					{type === "volume" && (
-						<button
-							onClick={handleExport}
-							className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-medium rounded-md transition-colors border border-blue-500/20"
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => window.open(exportUrl(), "_blank")}
 						>
-							<Download className="h-3.5 w-3.5" />
+							<Download />
 							Export
-						</button>
+						</Button>
 					)}
 				</div>
-			</div>
+			</header>
 
-			<div
-				className="flex-1 overflow-hidden relative"
-				onContextMenu={(e) => {
-					e.preventDefault();
-					if (!containerRef.current) return;
-					const rect = containerRef.current.getBoundingClientRect();
-					let x = e.clientX - rect.left;
-					let y = e.clientY - rect.top;
-					const menuWidth = 192;
-					const menuHeight = 220;
-					if (x + menuWidth > rect.width) x = rect.width - menuWidth;
-					if (y + menuHeight > rect.height) y = rect.height - menuHeight;
-
-					setContextMenu({
-						visible: true,
-						x: Math.max(0, x),
-						y: Math.max(0, y),
-						file: null,
-					});
-				}}
+			<FileContextMenu
+				canPaste={canPaste}
+				actions={actions}
+				className="relative flex-1 overflow-hidden"
 			>
-				{viewFile ? (
+				{viewFile && (
 					<FileEditorModal
 						viewFile={viewFile}
 						fileLoading={fileLoading}
@@ -227,52 +179,36 @@ export const FileBrowser = memo(function FileBrowser({
 						handleSave={handleSave}
 						handleCloseFileView={handleCloseFileView}
 					/>
-				) : null}
+				)}
 
 				{loading ? (
-					<div className="p-4 text-white/50 text-sm animate-pulse">
+					<p className="animate-pulse p-4 text-sm text-muted-foreground">
 						Loading directory...
-					</div>
+					</p>
 				) : error ? (
-					<div className="p-4 text-red-400 text-sm">{error}</div>
+					<p className="p-4 text-sm text-destructive">{error}</p>
 				) : filteredFiles.length === 0 ? (
-					<div className="p-4 text-white/40 text-sm italic">
+					<p className="p-4 text-sm italic text-muted-foreground">
 						{files.length === 0
 							? "Empty directory"
 							: "No files match your search"}
-					</div>
+					</p>
 				) : (
 					<FileListTable
 						files={filteredFiles}
 						isMountPoint={isMountPoint}
-						handleFileClick={handleFileClick}
-						handleContextMenu={handleContextMenu}
+						canPaste={canPaste}
+						actions={actions}
+						onOpen={handleFileClick}
 					/>
 				)}
-			</div>
+			</FileContextMenu>
 
-			{contextMenu && (
-				<FileContextMenu
-					contextMenu={contextMenu}
-					apiPrefix={apiPrefix}
-					globalClipboard={getGlobalClipboard()}
-					setContextMenu={setContextMenu}
-					handleEditContext={handleEditContext}
-					handleRename={handleRename}
-					handleCopy={handleCopy}
-					handleExportItem={handleExportItem}
-					handleNewFile={handleNewFile}
-					handleMkdir={handleMkdir}
-					handlePaste={handlePaste}
-					handleDelete={handleDelete}
-				/>
-			)}
-
-			<FileActionDialogs
-				dialog={dialog}
-				copiedFile={copiedFile}
-				setCopiedFile={setCopiedFile}
+			<CopiedFileBanner
+				item={copiedFile}
+				onDismiss={() => setCopiedFile(null)}
 			/>
+			<AppDialog dialog={dialog} />
 		</div>
 	);
 });

@@ -1,36 +1,35 @@
-export const getLanguageFromExtension = (filename: string) => {
-	const ext = filename.split(".").pop()?.toLowerCase() || "";
-	const map: Record<string, string> = {
-		js: "javascript",
-		jsx: "javascript",
-		ts: "typescript",
-		tsx: "typescript",
-		json: "json",
-		html: "html",
-		css: "css",
-		md: "markdown",
-		yaml: "yaml",
-		yml: "yaml",
-		sh: "shell",
-		bash: "shell",
-		py: "python",
-		go: "go",
-		rs: "rust",
-		c: "c",
-		cpp: "cpp",
-		java: "java",
-	};
-	return map[ext] || "plaintext";
+const LANGUAGE_BY_EXTENSION: Record<string, string> = {
+	js: "javascript",
+	jsx: "javascript",
+	ts: "typescript",
+	tsx: "typescript",
+	json: "json",
+	html: "html",
+	css: "css",
+	md: "markdown",
+	yaml: "yaml",
+	yml: "yaml",
+	sh: "shell",
+	bash: "shell",
+	py: "python",
+	go: "go",
+	rs: "rust",
+	c: "c",
+	cpp: "cpp",
+	java: "java",
 };
 
-export const formatBytes = (bytes: number, decimals = 2) => {
-	if (!+bytes) return "0 B";
-	const k = 1024;
-	const dm = decimals < 0 ? 0 : decimals;
-	const sizes = ["B", "KB", "MB", "GB", "TB"];
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return `${parseFloat((bytes / k ** i).toFixed(dm))} ${sizes[i]}`;
-};
+export const SUPPORTED_LANGUAGES = [
+	...new Set(Object.values(LANGUAGE_BY_EXTENSION)),
+	"plaintext",
+];
+
+export const getLanguageFromExtension = (filename: string) =>
+	LANGUAGE_BY_EXTENSION[filename.split(".").pop()?.toLowerCase() || ""] ||
+	"plaintext";
+
+export const joinPath = (dir: string, name: string) =>
+	dir === "/" ? name : `${dir.replace(/\/$/, "")}/${name}`;
 
 export interface ClipboardItem {
 	apiPrefix: string;
@@ -46,17 +45,16 @@ export const setGlobalClipboard = (item: ClipboardItem | null) => {
 	globalClipboard = item;
 };
 
-export const getUniqueName = (name: string, fileList: any[]) => {
-	let newName = name;
-	let counter = 1;
-	const nameWithoutExt = name.includes(".")
-		? name.substring(0, name.lastIndexOf("."))
-		: name;
-	const ext = name.includes(".") ? name.substring(name.lastIndexOf(".")) : "";
+export const getUniqueName = (name: string, files: any[]) => {
+	const dot = name.lastIndexOf(".");
+	const base = dot > 0 ? name.slice(0, dot) : name;
+	const ext = dot > 0 ? name.slice(dot) : "";
 
-	while (fileList.some((f) => f.name === newName)) {
-		newName = `${nameWithoutExt}-${counter}${ext}`;
+	let candidate = name;
+	let counter = 1;
+	while (files.some((f) => f.name === candidate)) {
+		candidate = `${base}-${counter}${ext}`;
 		counter++;
 	}
-	return newName;
+	return candidate;
 };
